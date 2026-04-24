@@ -1,0 +1,276 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+-- State Management
+local KeenToggled, ScentToggled, AggressionToggled, CowerToggled = false, false, false, false
+local InfiniteStaminaToggled, InfiniteOxygenToggled, InfiniteMoistureToggled = false, false, false
+local WalkEnabled, SprintEnabled, FlyEnabled, SwimEnabled = false, false, false, false
+local WalkSpeedValue, SprintSpeedValue, FlySpeedValue, SwimSpeedValue = 16, 16, 16, 16
+
+local GuiVisible = true
+local KeenInitialized = false
+local HideGuiKey = Enum.KeyCode.P
+
+-- Remotes
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
+local StateAilmentRemote = Remotes and Remotes:FindFirstChild("StateAilment")
+local HideScentRemote = Remotes and Remotes:FindFirstChild("HideScent")
+
+----------------------------------------------------------------
+-- HEARTBEAT LOOP (Forces Attributes)
+----------------------------------------------------------------
+
+RunService.Heartbeat:Connect(function()
+    local char = LocalPlayer.Character
+    local data = char and char:FindFirstChild("Data")
+    if not data then return end
+    
+    if InfiniteStaminaToggled then
+        data:SetAttribute("st", 99999999999999)
+        data:SetAttribute("sr", 99999999999999)
+    end
+    if InfiniteOxygenToggled then data:SetAttribute("Oxygen", 99999999999999) end
+    if InfiniteMoistureToggled then data:SetAttribute("Moisture", 99999999999999) end
+    
+    if WalkEnabled then data:SetAttribute("s", WalkSpeedValue) end
+    if SwimEnabled then data:SetAttribute("s", SwimSpeedValue) end 
+    if SprintEnabled then data:SetAttribute("ss", SprintSpeedValue) end
+    if FlyEnabled then data:SetAttribute("fs", FlySpeedValue) end
+
+    if ScentToggled then
+        char:SetAttribute("ScentHidden", true)
+        if HideScentRemote then HideScentRemote:FireServer(true) end
+    end
+    if AggressionToggled and StateAilmentRemote then StateAilmentRemote:FireServer("Aggression") end
+    if CowerToggled and StateAilmentRemote then StateAilmentRemote:FireServer("Cower") end
+end)
+
+----------------------------------------------------------------
+-- KEEN OBSERVER (ESP) LOGIC
+----------------------------------------------------------------
+local ActiveGuis = {}
+
+local function GetModule(name)
+    local found = ReplicatedStorage:FindFirstChild(name, true)
+    if found and found:IsA("ModuleScript") then return require(found) end
+    return nil
+end
+
+local GuiUtils = GetModule("GuiUtils")
+local WorldspaceGuiUtils = GetModule("WorldspaceGuiUtils")
+local OverheadHealthbar = GetModule("OverheadHealthbar")
+local UI_Template = ReplicatedStorage:FindFirstChild("OverheadGui", true) 
+
+local function CreateKeenUI(TargetCharacter)
+    if not TargetCharacter or TargetCharacter == LocalPlayer.Character or ActiveGuis[TargetCharacter] then return end 
+    local PlayerObj = Players:GetPlayerFromCharacter(TargetCharacter)
+    if not PlayerObj or not UI_Template then return end
+
+    local NewGui = UI_Template:Clone()
+    NewGui.Name = PlayerObj.Name .. "_ForceObserver"
+    NewGui.Enabled = KeenToggled 
+    NewGui.Adornee = TargetCharacter
+    
+    if GuiUtils then GuiUtils.ParentToWorkspaceGui(NewGui) end
+    if WorldspaceGuiUtils then WorldspaceGuiUtils.AddWorldspaceGui(NewGui) end
+    if OverheadHealthbar then
+        OverheadHealthbar.new(PlayerObj, NewGui:WaitForChild("Health"))
+        ActiveGuis[TargetCharacter] = NewGui 
+    end
+end
+
+local function ToggleKeen(state)
+    KeenToggled = state
+    if state and not KeenInitialized then
+        KeenInitialized = true
+        for _, p in pairs(Players:GetPlayers()) do
+            if p.Character then task.spawn(CreateKeenUI, p.Character) end
+            p.CharacterAdded:Connect(function(char) task.spawn(CreateKeenUI, char) end)
+        end
+        Players.PlayerAdded:Connect(function(p) p.CharacterAdded:Connect(function(char) task.spawn(CreateKeenUI, char) end) end)
+    end
+    for char, gui in pairs(ActiveGuis) do if gui then gui.Enabled = state end end
+end
+
+----------------------------------------------------------------
+-- UI CONSTRUCTION
+----------------------------------------------------------------
+
+local function CreateCompactUI()
+    local pg = LocalPlayer:WaitForChild("PlayerGui")
+    if pg:FindFirstChild("AlwaysKeenFinal") then pg.AlwaysKeenFinal:Destroy() end
+
+    local ScreenGui = Instance.new("ScreenGui", pg)
+    ScreenGui.Name = "AlwaysKeenFinal"
+    ScreenGui.ResetOnSpawn = false
+
+    local Main = Instance.new("Frame", ScreenGui)
+    Main.BackgroundColor3 = Color3.fromRGB(30, 31, 35)
+    Main.Position = UDim2.new(0.5, -150, 0.5, -200)
+    Main.Size = UDim2.new(0, 300, 0, 420) 
+    Main.ClipsDescendants = true
+    Main.Active = true
+    Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 12)
+
+    local Header = Instance.new("Frame", Main)
+    Header.Size = UDim2.new(1, 0, 0, 45)
+    Header.BackgroundColor3 = Color3.fromRGB(40, 41, 46)
+    Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 12)
+
+    local Title = Instance.new("TextLabel", Header)
+    Title.Text = "Drk_Duck Hub <font color='#55ff7f'>+</font>"
+    Title.RichText = true
+    Title.TextColor3 = Color3.new(1, 1, 1)
+    Title.Font = Enum.Font.GothamBold
+    Title.TextSize = 14
+    Title.Position = UDim2.new(0, 15, 0.35, 0) -- Slightly raised
+    Title.Size = UDim2.new(0.6, 0, 0.5, 0)
+    Title.AnchorPoint = Vector2.new(0, 0.5)
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+    Title.BackgroundTransparency = 1
+
+    -- ADDED SUBTITLE
+    local Subtitle = Instance.new("TextLabel", Header)
+    Subtitle.Text = "Press [P] to hide gui"
+    Subtitle.TextColor3 = Color3.fromRGB(150, 150, 155)
+    Subtitle.Font = Enum.Font.GothamMedium
+    Subtitle.TextSize = 10
+    Subtitle.Position = UDim2.new(0, 15, 0.7, 0)
+    Subtitle.Size = UDim2.new(0.6, 0, 0.3, 0)
+    Subtitle.AnchorPoint = Vector2.new(0, 0.5)
+    Subtitle.TextXAlignment = Enum.TextXAlignment.Left
+    Subtitle.BackgroundTransparency = 1
+
+    local Container = Instance.new("ScrollingFrame", Main)
+    Container.Position = UDim2.new(0, 0, 0, 50)
+    Container.Size = UDim2.new(1, 0, 1, -80)
+    Container.BackgroundTransparency = 1
+    Container.ScrollBarThickness = 3
+    Container.ScrollBarImageColor3 = Color3.fromRGB(85, 255, 127)
+    Container.CanvasSize = UDim2.new(0, 0, 0, 580)
+    
+    local List = Instance.new("UIListLayout", Container)
+    List.Padding = UDim.new(0, 8)
+    List.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+    local function CreateToggle(name, callback)
+        local Btn = Instance.new("TextButton", Container)
+        Btn.Size = UDim2.new(0.92, 0, 0, 38)
+        Btn.BackgroundColor3 = Color3.fromRGB(38, 39, 44)
+        Btn.Text = ""
+        Instance.new("UICorner", Btn)
+        
+        local Label = Instance.new("TextLabel", Btn)
+        Label.Text = name
+        Label.TextColor3 = Color3.fromRGB(200, 200, 205)
+        Label.Font = Enum.Font.GothamMedium
+        Label.TextSize = 13
+        Label.Position = UDim2.new(0, 12, 0.5, 0)
+        Label.Size = UDim2.new(0.6, 0, 1, 0)
+        Label.AnchorPoint = Vector2.new(0, 0.5)
+        Label.TextXAlignment = Enum.TextXAlignment.Left
+        Label.BackgroundTransparency = 1
+
+        local StatusBG = Instance.new("Frame", Btn)
+        StatusBG.Size = UDim2.new(0, 30, 0, 16)
+        StatusBG.Position = UDim2.new(1, -12, 0.5, 0)
+        StatusBG.AnchorPoint = Vector2.new(1, 0.5)
+        StatusBG.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
+        Instance.new("UICorner", StatusBG).CornerRadius = UDim.new(1, 0)
+
+        local active = false
+        Btn.MouseButton1Click:Connect(function()
+            active = not active
+            TweenService:Create(StatusBG, TweenInfo.new(0.2), {BackgroundColor3 = active and Color3.fromRGB(85, 255, 127) or Color3.fromRGB(60, 60, 65)}):Play()
+            callback(active)
+        end)
+    end
+
+    local function CreateInputWithToggle(name, placeholder, toggleCallback, valueCallback)
+        local Row = Instance.new("Frame", Container)
+        Row.Size = UDim2.new(0.92, 0, 0, 38)
+        Row.BackgroundColor3 = Color3.fromRGB(38, 39, 44)
+        Instance.new("UICorner", Row)
+
+        local Label = Instance.new("TextLabel", Row)
+        Label.Text = name
+        Label.TextColor3 = Color3.fromRGB(200, 200, 205)
+        Label.Font = Enum.Font.GothamMedium
+        Label.TextSize = 13
+        Label.Position = UDim2.new(0, 12, 0.5, 0)
+        Label.Size = UDim2.new(0.5, 0, 1, 0)
+        Label.AnchorPoint = Vector2.new(0, 0.5)
+        Label.TextXAlignment = Enum.TextXAlignment.Left
+        Label.BackgroundTransparency = 1
+
+        local Box = Instance.new("TextBox", Row)
+        Box.Size = UDim2.new(0, 50, 0, 24)
+        Box.Position = UDim2.new(1, -45, 0.5, 0)
+        Box.AnchorPoint = Vector2.new(1, 0.5)
+        Box.BackgroundColor3 = Color3.fromRGB(25, 26, 30)
+        Box.TextColor3 = Color3.new(1, 1, 1)
+        Box.PlaceholderText = placeholder
+        Box.Text = ""
+        Box.Font = Enum.Font.GothamBold
+        Box.TextSize = 11
+        Instance.new("UICorner", Box)
+
+        local Check = Instance.new("TextButton", Row)
+        Check.Size = UDim2.new(0, 24, 0, 24)
+        Check.Position = UDim2.new(1, -10, 0.5, 0)
+        Check.AnchorPoint = Vector2.new(1, 0.5)
+        Check.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
+        Check.Text = ""
+        Instance.new("UICorner", Check)
+
+        local active = false
+        Check.MouseButton1Click:Connect(function()
+            active = not active
+            Check.BackgroundColor3 = active and Color3.fromRGB(85, 255, 127) or Color3.fromRGB(60, 60, 65)
+            toggleCallback(active)
+        end)
+
+        Box.FocusLost:Connect(function()
+            local n = tonumber(Box.Text)
+            if n then valueCallback(n) end
+        end)
+    end
+
+    -- TOGGLES
+    CreateToggle("Keen Observer", function(s) ToggleKeen(s) end)
+    CreateToggle("Infinite Oxygen", function(s) InfiniteOxygenToggled = s end)
+    CreateToggle("Infinite Stamina", function(s) InfiniteStaminaToggled = s end)
+    CreateToggle("Infinite Moisture", function(s) InfiniteMoistureToggled = s end)
+    CreateToggle("Hide Scent", function(s) ScentToggled = s end)
+    CreateToggle("Always Agro", function(s) AggressionToggled = s end)
+    CreateToggle("Always Cower", function(s) CowerToggled = s end)
+
+    -- SPEED MODIFIERS
+    CreateInputWithToggle("Walk Speed", "16", function(s) WalkEnabled = s end, function(v) WalkSpeedValue = v end)
+    CreateInputWithToggle("Swim Speed", "16", function(s) SwimEnabled = s end, function(v) SwimSpeedValue = v end)
+    CreateInputWithToggle("Sprint Speed", "16", function(s) SprintEnabled = s end, function(v) SprintSpeedValue = v end)
+    CreateInputWithToggle("Fly Speed", "16", function(s) FlyEnabled = s end, function(v) FlySpeedValue = v end)
+
+    local Footer = Instance.new("TextLabel", Main)
+    Footer.Text = "By: Drk_Duck"
+    Footer.TextColor3 = Color3.fromRGB(120, 120, 125)
+    Footer.Font = Enum.Font.GothamMedium
+    Footer.TextSize = 11
+    Footer.Size = UDim2.new(1, 0, 0, 25)
+    Footer.Position = UDim2.new(0, 0, 1, 0)
+    Footer.AnchorPoint = Vector2.new(0, 1)
+    Footer.BackgroundTransparency = 1
+
+    -- Dragging & Hide Logic
+    local dragStart, startPos, dragging
+    Header.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true; dragStart = i.Position; startPos = Main.Position end end)
+    UserInputService.InputChanged:Connect(function(i) if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then local delta = i.Position - dragStart; Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y) end end)
+    UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
+    UserInputService.InputBegan:Connect(function(i, gpe) if not gpe and i.KeyCode == HideGuiKey then Main.Visible = not Main.Visible end end)
+end
+
+CreateCompactUI()
