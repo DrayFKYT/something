@@ -8,6 +8,7 @@ local LocalPlayer = Players.LocalPlayer
 -- State Management
 local KeenToggled, ScentToggled, AggressionToggled, CowerToggled = false, false, false, false
 local InfiniteStaminaToggled, InfiniteOxygenToggled, InfiniteMoistureToggled = false, false, false
+local AlwaysClimberToggled = false 
 local WalkEnabled, SprintEnabled, FlyEnabled, SwimEnabled = false, false, false, false
 local WalkSpeedValue, SprintSpeedValue, FlySpeedValue, SwimSpeedValue = 16, 16, 16, 16
 
@@ -21,12 +22,72 @@ local StateAilmentRemote = Remotes and Remotes:FindFirstChild("StateAilment")
 local HideScentRemote = Remotes and Remotes:FindFirstChild("HideScent")
 
 ----------------------------------------------------------------
--- HEARTBEAT LOOP (Forces Attributes)
+-- STAFF DETECTOR (ALWAYS ON)
+----------------------------------------------------------------
+local permissionPaths = {
+    "Settings.Permissions.Admin",
+    "Settings.Permissions.CommunityManager",
+    "Settings.Permissions.Developer",
+    "Settings.Permissions.Staff",
+    "Settings.Permissions.Contributor",
+    "Settings.Permissions.Translator",
+    "Settings.Permissions.Tester"
+}
+
+local function checkPlayer(player)
+    if player == LocalPlayer then return end
+    
+    for _, path in ipairs(permissionPaths) do
+        local current = player
+        local parts = string.split(path, ".")
+        local found = true
+        
+        for _, part in ipairs(parts) do
+            current = current:FindFirstChild(part)
+            if not current then
+                found = false
+                break
+            end
+        end
+        
+        if found and current:IsA("BoolValue") and current.Value == true then
+            LocalPlayer:Kick("Staff/Admin presence detected: " .. player.Name)
+            return true
+        end
+    end
+    return false
+end
+
+Players.PlayerAdded:Connect(checkPlayer)
+for _, player in ipairs(Players:GetPlayers()) do
+    task.spawn(checkPlayer, player)
+end
+
+----------------------------------------------------------------
+-- HEARTBEAT LOOP
 ----------------------------------------------------------------
 
 RunService.Heartbeat:Connect(function()
+    -- Admin Check
+    for _, player in ipairs(Players:GetPlayers()) do
+        if checkPlayer(player) then break end
+    end
+
+    -- Attribute Enforcement
     local char = LocalPlayer.Character
     local data = char and char:FindFirstChild("Data")
+    
+    -- Always Climber Enforcement (Handles True and False)
+    local charactersFolder = workspace:FindFirstChild("Characters")
+    if charactersFolder then
+        local playerFolder = charactersFolder:FindFirstChild(LocalPlayer.Name)
+        local climberData = playerFolder and playerFolder:FindFirstChild("Data")
+        if climberData then
+            -- Sets to true if toggled on, false if toggled off
+            climberData:SetAttribute("Climber", AlwaysClimberToggled)
+        end
+    end
+
     if not data then return end
     
     if InfiniteStaminaToggled then
@@ -127,13 +188,12 @@ local function CreateCompactUI()
     Title.TextColor3 = Color3.new(1, 1, 1)
     Title.Font = Enum.Font.GothamBold
     Title.TextSize = 14
-    Title.Position = UDim2.new(0, 15, 0.35, 0) -- Slightly raised
+    Title.Position = UDim2.new(0, 15, 0.35, 0)
     Title.Size = UDim2.new(0.6, 0, 0.5, 0)
     Title.AnchorPoint = Vector2.new(0, 0.5)
     Title.TextXAlignment = Enum.TextXAlignment.Left
     Title.BackgroundTransparency = 1
 
-    -- ADDED SUBTITLE
     local Subtitle = Instance.new("TextLabel", Header)
     Subtitle.Text = "Press [P] to hide gui"
     Subtitle.TextColor3 = Color3.fromRGB(150, 150, 155)
@@ -151,7 +211,7 @@ local function CreateCompactUI()
     Container.BackgroundTransparency = 1
     Container.ScrollBarThickness = 3
     Container.ScrollBarImageColor3 = Color3.fromRGB(85, 255, 127)
-    Container.CanvasSize = UDim2.new(0, 0, 0, 580)
+    Container.CanvasSize = UDim2.new(0, 0, 0, 620)
     
     local List = Instance.new("UIListLayout", Container)
     List.Padding = UDim.new(0, 8)
@@ -240,8 +300,8 @@ local function CreateCompactUI()
         end)
     end
 
-    -- TOGGLES
     CreateToggle("Keen Observer", function(s) ToggleKeen(s) end)
+    CreateToggle("Always Wall Climber", function(s) AlwaysClimberToggled = s end)
     CreateToggle("Infinite Oxygen", function(s) InfiniteOxygenToggled = s end)
     CreateToggle("Infinite Stamina", function(s) InfiniteStaminaToggled = s end)
     CreateToggle("Infinite Moisture", function(s) InfiniteMoistureToggled = s end)
@@ -249,7 +309,6 @@ local function CreateCompactUI()
     CreateToggle("Always Agro", function(s) AggressionToggled = s end)
     CreateToggle("Always Cower", function(s) CowerToggled = s end)
 
-    -- SPEED MODIFIERS
     CreateInputWithToggle("Walk Speed", "16", function(s) WalkEnabled = s end, function(v) WalkSpeedValue = v end)
     CreateInputWithToggle("Swim Speed", "16", function(s) SwimEnabled = s end, function(v) SwimSpeedValue = v end)
     CreateInputWithToggle("Sprint Speed", "16", function(s) SprintEnabled = s end, function(v) SprintSpeedValue = v end)
@@ -265,7 +324,6 @@ local function CreateCompactUI()
     Footer.AnchorPoint = Vector2.new(0, 1)
     Footer.BackgroundTransparency = 1
 
-    -- Dragging & Hide Logic
     local dragStart, startPos, dragging
     Header.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true; dragStart = i.Position; startPos = Main.Position end end)
     UserInputService.InputChanged:Connect(function(i) if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then local delta = i.Position - dragStart; Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y) end end)
