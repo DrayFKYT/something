@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TextChatService = game:GetService("TextChatService")
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
 local VIM = game:GetService("VirtualInputManager")
 local VU = game:GetService("VirtualUser") 
 
@@ -14,6 +15,14 @@ local LocalPlayer = Players.LocalPlayer
 local PlayerName = LocalPlayer.Name
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 local ConfigFile = "DandysHelper_Config.json"
+
+-- // Lighting Defaults (For Full Bright Reset)
+local DefaultLighting = {
+    Ambient = Lighting.Ambient,
+    OutdoorAmbient = Lighting.OutdoorAmbient,
+    ColorShift_Bottom = Lighting.ColorShift_Bottom,
+    ColorShift_Top = Lighting.ColorShift_Top
+}
 
 -- // ESP Folder
 local ESPFolder = Instance.new("Folder", CoreGui)
@@ -25,6 +34,8 @@ local Toggles = {
     MonsterESP = false, 
     CapsuleESP = false,
     HealthESP = false,
+    AllItemsESP = false, -- Added
+    FullBright = false,   -- Added
     InfStamina = false,
     AutoChat = false,
     ShowList = false,
@@ -81,6 +92,21 @@ end
 
 LoadConfig()
 
+-- // Lighting Logic
+local function UpdateLighting()
+    if Toggles.FullBright then
+        Lighting.Ambient = Color3.new(1, 1, 1)
+        Lighting.OutdoorAmbient = Color3.new(1, 1, 1)
+        Lighting.ColorShift_Bottom = Color3.new(1, 1, 1)
+        Lighting.ColorShift_Top = Color3.new(1, 1, 1)
+    else
+        Lighting.Ambient = DefaultLighting.Ambient
+        Lighting.OutdoorAmbient = DefaultLighting.OutdoorAmbient
+        Lighting.ColorShift_Bottom = DefaultLighting.ColorShift_Bottom
+        Lighting.ColorShift_Top = DefaultLighting.ColorShift_Top
+    end
+end
+
 -- // Anti-AFK Logic
 LocalPlayer.Idled:Connect(function()
     if Toggles.AntiAFK then
@@ -101,7 +127,7 @@ MainFrame.Name = "MainFrame"
 MainFrame.Parent = ScreenGui
 MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 33) 
 MainFrame.Position = UDim2.new(0.5, -125, 0.5, -210)
-MainFrame.Size = UDim2.new(0, 250, 0, 630) 
+MainFrame.Size = UDim2.new(0, 250, 0, 720) -- Resized for new buttons
 MainFrame.Active = true
 MainFrame.Draggable = true
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 15)
@@ -173,6 +199,7 @@ end
 
 -- Skill Check Loops
 RunService.Heartbeat:Connect(function()
+    UpdateLighting() -- Keep Lighting Updated
     if not (Toggles.AutoSkill or Toggles.Autofarm) or skillCheckActive then return end
 
     local circleGui = PlayerGui:FindFirstChild("CircleSkillCheckGui")
@@ -241,9 +268,8 @@ local safetyLock = false
 local levelReady = false 
 local CAMP_CHECK_DISTANCE = 70 
 
--- Variables for Sprout Staged Teleport
 local sproutTeleportTimer = 0
-local teleportStage = 0 -- 0: None, 1: Second Safest, 2: Safest
+local teleportStage = 0 
 
 local function getRoomFolder(name)
     local room = workspace:FindFirstChild("CurrentRoom")
@@ -255,7 +281,6 @@ local function getRoomFolder(name)
     return nil
 end
 
--- Selection Guard: Treats tendrils, blot hands, and monsters as hazards
 local function isAreaSafe(targetPosition)
     local monsters = getRoomFolder("Monsters")
     local room = workspace:FindFirstChild("CurrentRoom")
@@ -271,10 +296,8 @@ local function isAreaSafe(targetPosition)
         end
     end
 
-    -- Avoid environmental hazards during selection
     if room then
         for _, desc in pairs(room:GetDescendants()) do
-            -- Treat BlotHandZone names as hazards
             if (desc.Name == "SproutTendril" or desc.Name:find("BlotHandZone")) and desc:IsA("BasePart") then
                 if (desc.Position - targetPosition).Magnitude < 40 then
                     return false
@@ -286,7 +309,6 @@ local function isAreaSafe(targetPosition)
     return true
 end
 
--- Reaction Layer: STAGED TELEPORT FOR SPROUTMONSTER + HAZARD DETECTION
 RunService.Heartbeat:Connect(function()
     if not Toggles.Autofarm then return end
     local monsters = getRoomFolder("Monsters")
@@ -297,21 +319,17 @@ RunService.Heartbeat:Connect(function()
     local dangerDetected = false
     local isSproutChasing = false
 
-    -- Check for Monster Chase
     for _, m in pairs(monsters:GetChildren()) do
         if m.Name ~= "RazzleDazzleMonster" and m.Name ~= "RodgerMonster" and m.Name ~= "BlottMonster" then
             local chase = m:FindFirstChild("ChasingValue")
             if chase and chase.Value and (chase.Value == LocalPlayer or tostring(chase.Value):lower() == LocalPlayer.Name:lower()) then
                 dangerDetected = true
-                if m.Name == "SproutMonster" then
-                    isSproutChasing = true
-                end
+                if m.Name == "SproutMonster" then isSproutChasing = true end
                 break
             end
         end
     end
 
-    -- Trigger emergency if Hazards (Tendril or Blot Hands) are close, even if not chased
     if not dangerDetected then
         local char = LocalPlayer.Character
         if char and char:FindFirstChild("HumanoidRootPart") then
@@ -330,119 +348,73 @@ RunService.Heartbeat:Connect(function()
         safetyLock = true
         isInteracting = false 
         lockedGen = nil
-        
         local safetyList = {}
-        
-        -- Score all generators by distance from threats
         for _, g in pairs(gens:GetChildren()) do
             local p = g:FindFirstChild("ScrapsAttachPoint", true)
             if p then
                 local minDistanceToAnyThreat = 9999
-                
-                -- Monster proximity
                 for _, m in pairs(monsters:GetChildren()) do
                     if m.PrimaryPart then
                         local d = (p.Position - m.PrimaryPart.Position).Magnitude
                         if d < minDistanceToAnyThreat then minDistanceToAnyThreat = d end
                     end
                 end
-                
-                -- Environmental Hazard proximity
                 for _, desc in pairs(room:GetDescendants()) do
                     if (desc.Name == "SproutTendril" or desc.Name:find("BlotHandZone")) and desc:IsA("BasePart") then
                         local d = (p.Position - desc.Position).Magnitude
                         if d < minDistanceToAnyThreat then minDistanceToAnyThreat = d end
                     end
                 end
-
                 table.insert(safetyList, {Part = p, Dist = minDistanceToAnyThreat, Model = g})
             end
         end
-        
-        -- Sort: Index 1 is safest (furthest), Index 2 is second safest
         table.sort(safetyList, function(a, b) return a.Dist > b.Dist end)
-
         if #safetyList > 0 then
             local targetData = nil
-            
             if isSproutChasing then
                 if teleportStage == 0 then
-                    -- Stage 1: Move to 2nd safest immediately
                     targetData = safetyList[2] or safetyList[1]
-                    teleportStage = 1
-                    sproutTeleportTimer = tick()
+                    teleportStage = 1; sproutTeleportTimer = tick()
                 elseif teleportStage == 1 then
-                    -- Check if 1 second has passed to move to safest
                     if tick() - sproutTeleportTimer >= 1 then
-                        targetData = safetyList[1]
-                        teleportStage = 2
-                    else
-                        targetData = safetyList[2] or safetyList[1]
-                    end
-                else
-                    -- Already at safest
-                    targetData = safetyList[1]
-                end
-            else
-                -- Normal danger/Hazard: Go straight to safest
-                targetData = safetyList[1]
-                teleportStage = 0
-            end
-
-            -- Execute Teleport
+                        targetData = safetyList[1]; teleportStage = 2
+                    else targetData = safetyList[2] or safetyList[1] end
+                else targetData = safetyList[1] end
+            else targetData = safetyList[1]; teleportStage = 0 end
             if targetData then 
                 local char = LocalPlayer.Character
                 if char and char:FindFirstChild("HumanoidRootPart") then
-                    local p = targetData.Part
-                    local g = targetData.Model
-                    
-                    local targetPos = p.Position
-                    local modelHeight = g:GetExtentsSize().Y
-                    local modelCenterY = g:GetPivot().Y
-                    local roofY = modelCenterY + (modelHeight / 2) + 85
-                    
+                    local p = targetData.Part; local g = targetData.Model
+                    local targetPos = p.Position; local modelHeight = g:GetExtentsSize().Y
+                    local modelCenterY = g:GetPivot().Y; local roofY = modelCenterY + (modelHeight / 2) + 85
                     char.HumanoidRootPart.CFrame = CFrame.new(targetPos.X, roofY, targetPos.Z)
                     KillVelocity()
-                    
-                    -- Force Close Generator UI
-                    local stopButton = PlayerGui:FindFirstChild("ScreenGui") 
-                        and PlayerGui.ScreenGui:FindFirstChild("Menu") 
-                        and PlayerGui.ScreenGui.Menu:FindFirstChild("StopGenerator")
+                    local stopButton = PlayerGui:FindFirstChild("ScreenGui") and PlayerGui.ScreenGui:FindFirstChild("Menu") and PlayerGui.ScreenGui.Menu:FindFirstChild("StopGenerator")
                     if stopButton and stopButton.Visible then
-                        local absPos = stopButton.AbsolutePosition
-                        local absSize = stopButton.AbsoluteSize
+                        local absPos = stopButton.AbsolutePosition; local absSize = stopButton.AbsoluteSize
                         VIM:SendMouseButtonEvent(absPos.X + (absSize.X/2), absPos.Y + (absSize.Y/2), 0, true, game, 1)
                         VIM:SendMouseButtonEvent(absPos.X + (absSize.X/2), absPos.Y + (absSize.Y/2), 0, false, game, 1)
                     end
                 end
             end
         end
-    else
-        safetyLock = false
-        teleportStage = 0 -- Reset when danger is gone
-    end
+    else safetyLock = false; teleportStage = 0 end
 end)
 
 task.spawn(function()
     while true do
         task.wait(0.5)
         if not Toggles.Autofarm then continue end
-
         local char = LocalPlayer.Character
         if not char or not char:FindFirstChild("HumanoidRootPart") then continue end
         local root = char.HumanoidRootPart
         local currentRoom = workspace:FindFirstChild("CurrentRoom")
-        local gens = getRoomFolder("Generators")
-        local items = getRoomFolder("Items")
-        
+        local gens = getRoomFolder("Generators"); local items = getRoomFolder("Items")
         if not currentRoom or not gens or #gens:GetChildren() == 0 then
-            levelReady = false; isInteracting = false; lockedGen = nil
-            continue 
+            levelReady = false; isInteracting = false; lockedGen = nil; continue 
         end
-
         if not levelReady then task.wait(5); levelReady = true end
         if safetyLock then continue end
-
         local incompleteGensFound = false
         if gens then
             if lockedGen then
@@ -454,45 +426,27 @@ task.spawn(function()
                 local stats = g:FindFirstChild("Stats", true)
                 local comp = stats and stats:FindFirstChild("Completed")
                 if comp and comp.Value == false then
-                    incompleteGensFound = true
-                    local attach = g:FindFirstChild("ScrapsAttachPoint", true)
+                    incompleteGensFound = true; local attach = g:FindFirstChild("ScrapsAttachPoint", true)
                     if attach and isAreaSafe(attach.Position) then
                         local connie = stats:FindFirstChild("Connie")
-                        if not (connie and connie.Value == true) and not lockedGen then
-                            lockedGen = g; break
-                        end
+                        if not (connie and connie.Value == true) and not lockedGen then lockedGen = g; break end
                     end
                 end
             end
         end
-
         if lockedGen and not safetyLock then
             local p = lockedGen:FindFirstChild("ScrapsAttachPoint", true)
             if p then
-                if (root.Position - p.Position).Magnitude > 5 then
-                    root.CFrame = p.CFrame
-                    KillVelocity()
-                    isInteracting = false 
-                    task.wait(0.3)
-                end
+                if (root.Position - p.Position).Magnitude > 5 then root.CFrame = p.CFrame; KillVelocity(); isInteracting = false; task.wait(0.3) end
                 while lockedGen and not safetyLock and not isInteracting do
                     local prompt = lockedGen:FindFirstChild("ProximityPrompt", true)
-                    if prompt and prompt.Enabled then
-                        isInteracting = true
-                        fireproximityprompt(prompt)
-                        break 
-                    else
-                        root.CFrame = root.CFrame * CFrame.new(0, 0, 0.05)
-                        task.wait(0.1)
-                        root.CFrame = root.CFrame * CFrame.new(0, 0, -0.05)
-                        KillVelocity()
-                    end
+                    if prompt and prompt.Enabled then isInteracting = true; fireproximityprompt(prompt); break 
+                    else root.CFrame = root.CFrame * CFrame.new(0, 0, 0.05); task.wait(0.1); root.CFrame = root.CFrame * CFrame.new(0, 0, -0.05); KillVelocity() end
                     task.wait(0.1)
                 end
             end
             continue 
         end
-
         local capsulesFound = false
         if not incompleteGensFound and items then
             local capsuleList = {}
@@ -503,41 +457,26 @@ task.spawn(function()
                 end
             end
             if #capsuleList > 0 then
-                capsulesFound = true
-                local target = capsuleList[1]
+                capsulesFound = true; local target = capsuleList[1]
                 if not safetyLock then
                     local pos = target:IsA("Model") and target:GetPivot().Position or target.Position
-                    if (root.Position - pos).Magnitude > 5 then
-                        root.CFrame = CFrame.new(pos)
-                        KillVelocity()
-                        task.wait(0.3)
-                    end
+                    if (root.Position - pos).Magnitude > 5 then root.CFrame = CFrame.new(pos); KillVelocity(); task.wait(0.3) end
                     local capsuleGrabbed = false
                     while target.Parent ~= nil and not safetyLock and not capsuleGrabbed do
                         local capPrompt = target:FindFirstChild("ProximityPrompt", true)
-                        if capPrompt and capPrompt.Enabled then
-                            fireproximityprompt(capPrompt); capsuleGrabbed = true; task.wait(0.2)
-                        else
-                            root.CFrame = root.CFrame * CFrame.new(0, 0, 0.05); task.wait(0.1)
-                            root.CFrame = root.CFrame * CFrame.new(0, 0, -0.05)
-                            KillVelocity()
-                        end
+                        if capPrompt and capPrompt.Enabled then fireproximityprompt(capPrompt); capsuleGrabbed = true; task.wait(0.2)
+                        else root.CFrame = root.CFrame * CFrame.new(0, 0, 0.05); task.wait(0.1); root.CFrame = root.CFrame * CFrame.new(0, 0, -0.05); KillVelocity() end
                         task.wait(0.1)
                     end
                 end
                 continue 
             end
         end
-
         if not incompleteGensFound and not capsulesFound and not safetyLock then
             local elevatorPart = workspace:FindFirstChild("Elevators") and workspace.Elevators:FindFirstChild("Elevator")
             if elevatorPart then
                 local targetCFrame = elevatorPart:IsA("Model") and elevatorPart:GetPivot() or elevatorPart.CFrame
-                if (root.Position - targetCFrame.Position).Magnitude > 3 then
-                    root.CFrame = targetCFrame * CFrame.new(0, 3.5, 0)
-                    KillVelocity()
-                    task.wait(2)
-                end
+                if (root.Position - targetCFrame.Position).Magnitude > 3 then root.CFrame = targetCFrame * CFrame.new(0, 3.5, 0); KillVelocity(); task.wait(2) end
             end
         end
     end
@@ -571,8 +510,7 @@ local function TeleportTo(obj)
     if char and char:FindFirstChild("HumanoidRootPart") and obj then
         local target = obj:FindFirstChild("ScrapsAttachPoint", true) or (obj:IsA("Model") and obj.PrimaryPart) or obj
         char.HumanoidRootPart.CFrame = (target:IsA("Attachment") and target.WorldCFrame or target.CFrame) + Vector3.new(0, 3, 0)
-        task.wait(0.05)
-        KillVelocity()
+        task.wait(0.05); KillVelocity()
     end
 end
 
@@ -588,70 +526,36 @@ local function CreateESP(obj, color, toggle)
             local hl = Instance.new("Highlight")
             hl.Name = id; hl.Adornee = obj; hl.FillColor = color; hl.FillTransparency = 0.7; hl.OutlineTransparency = 0; hl.Parent = ESPFolder
         end
-    else
-        if existing then existing:Destroy() end
-    end
+    else if existing then existing:Destroy() end end
 end
 
--- // LIVE PLAYER SPY (NAMES FIXED AT TOP)
 local function UpdatePlayerSpy()
     if not Toggles.ShowList then return end
-    
     local InGamePlayers = workspace:FindFirstChild("InGamePlayers")
     if not InGamePlayers then return end
-
     for _, pFolder in pairs(InGamePlayers:GetChildren()) do
         local box = SpyScrolling:FindFirstChild(pFolder.Name)
         if not box then
-            box = Instance.new("Frame", SpyScrolling)
-            box.Name = pFolder.Name
-            box.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-            Instance.new("UICorner", box).CornerRadius = UDim.new(0, 8)
-            local layout = Instance.new("UIListLayout", box)
-            layout.Padding = UDim.new(0, 4)
-            layout.SortOrder = Enum.SortOrder.LayoutOrder
-            box.AutomaticSize = Enum.AutomaticSize.Y
-            box.Size = UDim2.new(0.95, 0, 0, 0)
-
-            local nL = Instance.new("TextLabel", box)
-            nL.Name = "NameLabel"
-            nL.LayoutOrder = 1
-            
-            local tL = Instance.new("TextLabel", box)
-            tL.Name = "TLabel"
-            tL.LayoutOrder = 2
-            
-            local iL = Instance.new("TextLabel", box)
-            iL.Name = "ILabel"
-            iL.LayoutOrder = 3
+            box = Instance.new("Frame", SpyScrolling); box.Name = pFolder.Name; box.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+            Instance.new("UICorner", box).CornerRadius = UDim.new(0, 8); local layout = Instance.new("UIListLayout", box)
+            layout.Padding = UDim.new(0, 4); layout.SortOrder = Enum.SortOrder.LayoutOrder; box.AutomaticSize = Enum.AutomaticSize.Y; box.Size = UDim2.new(0.95, 0, 0, 0)
+            local nL = Instance.new("TextLabel", box); nL.Name = "NameLabel"; nL.LayoutOrder = 1
+            local tL = Instance.new("TextLabel", box); tL.Name = "TLabel"; tL.LayoutOrder = 2
+            local iL = Instance.new("TextLabel", box); iL.Name = "ILabel"; iL.LayoutOrder = 3
         end
-
-        local trinkets = pFolder:FindFirstChild("Trinkets")
-        local inventory = pFolder:FindFirstChild("Inventory")
-
-        local nL = box.NameLabel
-        nL.Size = UDim2.new(1, -10, 0, 22); nL.BackgroundTransparency = 1
-        nL.Text = " " .. pFolder.Name:upper()
+        local trinkets = pFolder:FindFirstChild("Trinkets"); local inventory = pFolder:FindFirstChild("Inventory")
+        local nL = box.NameLabel; nL.Size = UDim2.new(1, -10, 0, 22); nL.BackgroundTransparency = 1; nL.Text = " " .. pFolder.Name:upper()
         nL.TextColor3 = Color3.fromRGB(255, 255, 255); nL.Font = Enum.Font.GothamBold; nL.TextSize = 14; nL.TextXAlignment = Enum.TextXAlignment.Left
-
         local tList = {}
         if trinkets then for _, t in pairs(trinkets:GetChildren()) do table.insert(tList, tostring(t.Value)) end end
-        local tL = box.TLabel
-        tL.Size = UDim2.new(1, -10, 0, 0); tL.AutomaticSize = Enum.AutomaticSize.Y; tL.BackgroundTransparency = 1
-        tL.Text = " TRINKETS: " .. (#tList > 0 and table.concat(tList, ", ") or "None")
-        tL.TextColor3 = Color3.fromRGB(200, 200, 200); tL.Font = Enum.Font.GothamMedium; tL.TextSize = 12; tL.TextWrapped = true; tL.TextXAlignment = Enum.TextXAlignment.Left
-
+        local tL = box.TLabel; tL.Size = UDim2.new(1, -10, 0, 0); tL.AutomaticSize = Enum.AutomaticSize.Y; tL.BackgroundTransparency = 1
+        tL.Text = " TRINKETS: " .. (#tList > 0 and table.concat(tList, ", ") or "None"); tL.TextColor3 = Color3.fromRGB(200, 200, 200); tL.Font = Enum.Font.GothamMedium; tL.TextSize = 12; tL.TextWrapped = true; tL.TextXAlignment = Enum.TextXAlignment.Left
         local iList = {}
         if inventory then for _, i in pairs(inventory:GetChildren()) do table.insert(iList, tostring(i.Value)) end end
-        local iL = box.ILabel
-        iL.Size = UDim2.new(1, -10, 0, 0); iL.AutomaticSize = Enum.AutomaticSize.Y; iL.BackgroundTransparency = 1
-        iL.Text = " INV: " .. (#iList > 0 and table.concat(iList, ", ") or "Empty")
-        iL.TextColor3 = Color3.fromRGB(0, 180, 255); iL.Font = Enum.Font.GothamMedium; iL.TextSize = 12; iL.TextWrapped = true; iL.TextXAlignment = Enum.TextXAlignment.Left
+        local iL = box.ILabel; iL.Size = UDim2.new(1, -10, 0, 0); iL.AutomaticSize = Enum.AutomaticSize.Y; iL.BackgroundTransparency = 1
+        iL.Text = " INV: " .. (#iList > 0 and table.concat(iList, ", ") or "Empty"); iL.TextColor3 = Color3.fromRGB(0, 180, 255); iL.Font = Enum.Font.GothamMedium; iL.TextSize = 12; iL.TextWrapped = true; iL.TextXAlignment = Enum.TextXAlignment.Left
     end
-
-    for _, box in pairs(SpyScrolling:GetChildren()) do
-        if box:IsA("Frame") and not InGamePlayers:FindFirstChild(box.Name) then box:Destroy() end
-    end
+    for _, box in pairs(SpyScrolling:GetChildren()) do if box:IsA("Frame") and not InGamePlayers:FindFirstChild(box.Name) then box:Destroy() end end
 end
 
 RunService.Heartbeat:Connect(function()
@@ -682,13 +586,13 @@ task.spawn(function()
                     end
                     if part:FindFirstChild("Items") then
                         for _, i in pairs(part.Items:GetChildren()) do
-                            if i.Name == "ResearchCapsule" then CreateESP(i, Color3.fromRGB(255, 200, 0), Toggles.CapsuleESP)
-                            elseif i.Name == "HealthKit" or i.Name == "Bandage" then CreateESP(i, Color3.fromRGB(0, 255, 100), Toggles.HealthESP) end
+                            if i.Name == "ResearchCapsule" then CreateESP(i, Color3.fromRGB(255, 200, 0), Toggles.CapsuleESP or Toggles.AllItemsESP)
+                            elseif i.Name == "HealthKit" or i.Name == "Bandage" then CreateESP(i, Color3.fromRGB(0, 255, 100), Toggles.HealthESP or Toggles.AllItemsESP)
+                            else CreateESP(i, Color3.fromRGB(255, 255, 255), Toggles.AllItemsESP) end
                         end
                     end
                 end
             end
-            
             for _, desc in pairs(room:GetDescendants()) do
                 if (desc.Name == "SproutTendril" or desc.Name:find("BlotHandZone")) and desc:IsA("BasePart") then
                     CreateESP(desc, Color3.fromRGB(255, 80, 0), Toggles.MonsterESP)
@@ -700,11 +604,9 @@ task.spawn(function()
                 if target and not Players:GetPlayerFromCharacter(target) then hl:Destroy() end
             end
         end
-
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= LocalPlayer and p.Character then CreateESP(p.Character, Color3.fromRGB(0, 120, 255), Toggles.PlayerESP) end
         end
-        
         if Toggles.ShowList then
             if room and #room:GetChildren() > 0 then
                 for _, child in pairs(ScrollingFrame:GetChildren()) do if child:IsA("TextButton") then child:Destroy() end end
@@ -732,7 +634,6 @@ task.spawn(function()
                         end
                     end
                 end
-                
                 if Toggles.TrackMonsters then
                     for _, desc in pairs(room:GetDescendants()) do
                         if (desc.Name == "SproutTendril" or desc.Name:find("BlotHandZone")) and desc:IsA("BasePart") then
@@ -740,12 +641,9 @@ task.spawn(function()
                         end
                     end
                 end
-
                 for _, d in pairs(entries) do
-                    local b = Instance.new("TextButton", ScrollingFrame)
-                    b.Size = UDim2.new(0.9, 0, 0, 25); b.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-                    b.Text = d.Name; b.TextColor3 = d.Color; b.Font = Enum.Font.GothamSemibold; b.TextSize = 11; b.LayoutOrder = d.Order
-                    b.TextXAlignment = Enum.TextXAlignment.Center
+                    local b = Instance.new("TextButton", ScrollingFrame); b.Size = UDim2.new(0.9, 0, 0, 25); b.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+                    b.Text = d.Name; b.TextColor3 = d.Color; b.Font = Enum.Font.GothamSemibold; b.TextSize = 11; b.LayoutOrder = d.Order; b.TextXAlignment = Enum.TextXAlignment.Center
                     Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
                     if d.CanTP then b.MouseButton1Click:Connect(function() TeleportTo(d.Obj) end) end
                 end
@@ -761,30 +659,23 @@ local buttonY = 70
 local function CreateSwitch(name, toggleKey)
     local Btn = Instance.new("TextButton", MainFrame)
     Btn.BackgroundColor3 = Toggles[toggleKey] and Color3.fromRGB(0, 80, 220) or Color3.fromRGB(35, 35, 45)
-    Btn.Font = Enum.Font.GothamMedium
-    Btn.TextColor3 = Toggles[toggleKey] and Color3.new(1, 1, 1) or Color3.fromRGB(180, 180, 180)
-    Btn.TextSize = 12
-    Btn.Text = name .. (Toggles[toggleKey] and ": ON" or ": OFF")
+    Btn.Font = Enum.Font.GothamMedium; Btn.TextColor3 = Toggles[toggleKey] and Color3.new(1, 1, 1) or Color3.fromRGB(180, 180, 180)
+    Btn.TextSize = 12; Btn.Text = name .. (Toggles[toggleKey] and ": ON" or ": OFF")
     Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 10)
 
     if toggleKey == "MonsterESP" then
         Btn.Size = UDim2.new(0, 155, 0, 40); Btn.Position = UDim2.new(0, 25, 0, buttonY)
         local ChatBtn = Instance.new("TextButton", MainFrame)
         ChatBtn.Size = UDim2.new(0, 40, 0, 40); ChatBtn.Position = UDim2.new(0, 185, 0, buttonY); ChatBtn.BackgroundColor3 = Color3.fromRGB(0, 80, 220); ChatBtn.Text = "💬"; ChatBtn.TextColor3 = Color3.new(1,1,1); Instance.new("UICorner", ChatBtn).CornerRadius = UDim.new(0, 8); ChatBtn.MouseButton1Click:Connect(SendMonsterChat)
-        
         local AutoCheck = Instance.new("TextButton", MainFrame)
         AutoCheck.Size = UDim2.new(0, 200, 0, 25); AutoCheck.Position = UDim2.new(0, 25, 0, buttonY + 45); AutoCheck.BackgroundColor3 = Toggles.AutoChat and Color3.fromRGB(0, 80, 220) or Color3.fromRGB(28, 28, 38)
-        AutoCheck.Text = "Auto-Chat Monsters: " .. (Toggles.AutoChat and "ON" or "OFF")
-        AutoCheck.TextColor3 = Toggles.AutoChat and Color3.new(1,1,1) or Color3.fromRGB(150, 150, 150)
-        AutoCheck.TextSize = 12; AutoCheck.Font = Enum.Font.GothamMedium
-        Instance.new("UICorner", AutoCheck).CornerRadius = UDim.new(0, 6)
-        
+        AutoCheck.Text = "Auto-Chat Monsters: " .. (Toggles.AutoChat and "ON" or "OFF"); AutoCheck.TextColor3 = Toggles.AutoChat and Color3.new(1,1,1) or Color3.fromRGB(150, 150, 150)
+        AutoCheck.TextSize = 12; AutoCheck.Font = Enum.Font.GothamMedium; Instance.new("UICorner", AutoCheck).CornerRadius = UDim.new(0, 6)
         AutoCheck.MouseButton1Click:Connect(function() 
             Toggles.AutoChat = not Toggles.AutoChat
             AutoCheck.BackgroundColor3 = Toggles.AutoChat and Color3.fromRGB(0, 80, 220) or Color3.fromRGB(28, 28, 38)
             AutoCheck.Text = "Auto-Chat Monsters: " .. (Toggles.AutoChat and "ON" or "OFF")
-            AutoCheck.TextColor3 = Toggles.AutoChat and Color3.new(1,1,1) or Color3.fromRGB(150, 150, 150) 
-            SaveConfig()
+            AutoCheck.TextColor3 = Toggles.AutoChat and Color3.new(1,1,1) or Color3.fromRGB(150, 150, 150); SaveConfig()
         end)
         buttonY = buttonY + 80
     else
@@ -806,18 +697,17 @@ local checkY = 35
 local function CreateCheck(name, toggleKey)
     local b = Instance.new("TextButton", ListFrame); b.Size = UDim2.new(0, 20, 0, 20); b.Position = UDim2.new(0, 15, 0, checkY)
     b.BackgroundColor3 = Toggles[toggleKey] and Color3.fromRGB(0, 80, 220) or Color3.fromRGB(50, 50, 60)
-    b.Text = Toggles[toggleKey] and "✓" or ""
-    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 4)
+    b.Text = Toggles[toggleKey] and "✓" or ""; Instance.new("UICorner", b).CornerRadius = UDim.new(0, 4)
     local t = Instance.new("TextLabel", ListFrame); t.Position = UDim2.new(0, 45, 0, checkY); t.Size = UDim2.new(0, 140, 0, 20); t.Text = name; t.TextColor3 = Color3.new(1,1,1); t.BackgroundTransparency = 1; t.TextXAlignment = Enum.TextXAlignment.Left; t.Font = Enum.Font.Gotham; t.TextSize = 10
     b.MouseButton1Click:Connect(function() 
-        Toggles[toggleKey] = not Toggles[toggleKey]
-        b.Text = Toggles[toggleKey] and "✓" or ""
-        b.BackgroundColor3 = Toggles[toggleKey] and Color3.fromRGB(0, 80, 220) or Color3.fromRGB(50, 50, 60)
-        SaveConfig()
+        Toggles[toggleKey] = not Toggles[toggleKey]; b.Text = Toggles[toggleKey] and "✓" or ""
+        b.BackgroundColor3 = Toggles[toggleKey] and Color3.fromRGB(0, 80, 220) or Color3.fromRGB(50, 50, 60); SaveConfig()
     end)
     checkY = checkY + 23
 end
 
+CreateSwitch("Full Bright", "FullBright")
+CreateSwitch("All Items ESP", "AllItemsESP")
 CreateSwitch("Player Highlight", "PlayerESP")
 CreateSwitch("Generator ESP", "GenESP")
 CreateSwitch("Monster ESP", "MonsterESP")
