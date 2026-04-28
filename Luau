@@ -14,6 +14,7 @@ local WalkSpeedValue, SprintSpeedValue, FlySpeedValue, SwimSpeedValue = 16, 16, 
 
 local GuiVisible = true
 local KeenInitialized = false
+local KeenCapable = true -- Track if executor supports ESP modules
 local HideGuiKey = Enum.KeyCode.P
 
 -- Remotes
@@ -77,13 +78,11 @@ RunService.Heartbeat:Connect(function()
     local char = LocalPlayer.Character
     local data = char and char:FindFirstChild("Data")
     
-    -- Always Climber Enforcement (Handles True and False)
     local charactersFolder = workspace:FindFirstChild("Characters")
     if charactersFolder then
         local playerFolder = charactersFolder:FindFirstChild(LocalPlayer.Name)
         local climberData = playerFolder and playerFolder:FindFirstChild("Data")
         if climberData then
-            -- Sets to true if toggled on, false if toggled off
             climberData:SetAttribute("Climber", AlwaysClimberToggled)
         end
     end
@@ -111,14 +110,26 @@ RunService.Heartbeat:Connect(function()
 end)
 
 ----------------------------------------------------------------
--- KEEN OBSERVER (ESP) LOGIC
+-- KEEN OBSERVER (ESP) LOGIC WITH CAPABILITY CHECK
 ----------------------------------------------------------------
 local ActiveGuis = {}
 
 local function GetModule(name)
-    local found = ReplicatedStorage:FindFirstChild(name, true)
-    if found and found:IsA("ModuleScript") then return require(found) end
-    return nil
+    -- Protected call to check if the executor can require game modules
+    local success, result = pcall(function()
+        local found = ReplicatedStorage:FindFirstChild(name, true)
+        if found and found:IsA("ModuleScript") then 
+            return require(found) 
+        end
+    end)
+    
+    if success and result then 
+        return result 
+    else
+        KeenCapable = false
+        warn("Executor Unsupported for Module: " .. name)
+        return nil
+    end
 end
 
 local GuiUtils = GetModule("GuiUtils")
@@ -127,7 +138,7 @@ local OverheadHealthbar = GetModule("OverheadHealthbar")
 local UI_Template = ReplicatedStorage:FindFirstChild("OverheadGui", true) 
 
 local function CreateKeenUI(TargetCharacter)
-    if not TargetCharacter or TargetCharacter == LocalPlayer.Character or ActiveGuis[TargetCharacter] then return end 
+    if not KeenCapable or not TargetCharacter or TargetCharacter == LocalPlayer.Character or ActiveGuis[TargetCharacter] then return end 
     local PlayerObj = Players:GetPlayerFromCharacter(TargetCharacter)
     if not PlayerObj or not UI_Template then return end
 
@@ -139,12 +150,19 @@ local function CreateKeenUI(TargetCharacter)
     if GuiUtils then GuiUtils.ParentToWorkspaceGui(NewGui) end
     if WorldspaceGuiUtils then WorldspaceGuiUtils.AddWorldspaceGui(NewGui) end
     if OverheadHealthbar then
-        OverheadHealthbar.new(PlayerObj, NewGui:WaitForChild("Health"))
-        ActiveGuis[TargetCharacter] = NewGui 
+        pcall(function()
+            OverheadHealthbar.new(PlayerObj, NewGui:WaitForChild("Health"))
+            ActiveGuis[TargetCharacter] = NewGui 
+        end)
     end
 end
 
 local function ToggleKeen(state)
+    if not KeenCapable then 
+        print("Feature Disabled: Your executor does not support internal Module requiring.")
+        return 
+    end
+    
     KeenToggled = state
     if state and not KeenInitialized then
         KeenInitialized = true
@@ -217,7 +235,7 @@ local function CreateCompactUI()
     List.Padding = UDim.new(0, 8)
     List.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
-    local function CreateToggle(name, callback)
+    local function CreateToggle(name, callback, isDisabled)
         local Btn = Instance.new("TextButton", Container)
         Btn.Size = UDim2.new(0.92, 0, 0, 38)
         Btn.BackgroundColor3 = Color3.fromRGB(38, 39, 44)
@@ -225,8 +243,8 @@ local function CreateCompactUI()
         Instance.new("UICorner", Btn)
         
         local Label = Instance.new("TextLabel", Btn)
-        Label.Text = name
-        Label.TextColor3 = Color3.fromRGB(200, 200, 205)
+        Label.Text = isDisabled and name .. " (Unsupported)" or name
+        Label.TextColor3 = isDisabled and Color3.fromRGB(100, 100, 105) or Color3.fromRGB(200, 200, 205)
         Label.Font = Enum.Font.GothamMedium
         Label.TextSize = 13
         Label.Position = UDim2.new(0, 12, 0.5, 0)
@@ -241,6 +259,8 @@ local function CreateCompactUI()
         StatusBG.AnchorPoint = Vector2.new(1, 0.5)
         StatusBG.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
         Instance.new("UICorner", StatusBG).CornerRadius = UDim.new(1, 0)
+
+        if isDisabled then return end -- Don't add click functionality if unsupported
 
         local active = false
         Btn.MouseButton1Click:Connect(function()
@@ -300,7 +320,8 @@ local function CreateCompactUI()
         end)
     end
 
-    CreateToggle("Keen Observer", function(s) ToggleKeen(s) end)
+    -- Toggle buttons with support check
+    CreateToggle("Keen Observer", function(s) ToggleKeen(s) end, not KeenCapable)
     CreateToggle("Always Wall Climber", function(s) AlwaysClimberToggled = s end)
     CreateToggle("Infinite Oxygen", function(s) InfiniteOxygenToggled = s end)
     CreateToggle("Infinite Stamina", function(s) InfiniteStaminaToggled = s end)
