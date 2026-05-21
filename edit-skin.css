@@ -1,66 +1,55 @@
-/* --- OVERRIDE BASE SKIN --- */
-
-/* Main Faceplate - Slate Blue/Gray */
-div.controller.ps4, 
-.controller.ps4 {
-    background: #9fa9bc !important;
-    background-color: #9fa9bc !important;
-    border-radius: 60px !important;
+/* --- MAIN FACEPLATE & GRIPS --- */
+/* Your specific grey-blue faceplate color */
+svg path#faceplate, 
+svg [id*="faceplate"],
+.ps4-skin #faceplate {
+    fill: #9fa9bc !important;
 }
 
-/* Handles & Grips - Classic Light Gray */
-.controller.ps4 .handle.left,
-.controller.ps4 .handle.right,
-div.controller.ps4 .handle {
-    background: #b0b5be !important;
-    background-color: #b0b5be !important;
+/* Light classic grey handles */
+svg path#grip-left, 
+svg path#grip-right,
+svg [id*="grip"],
+svg [id*="handle"] {
+    fill: #b0b5be !important;
 }
 
-/* Touchpad - Dark Slate/Black Matte */
-.controller.ps4 .touchpad,
-div.controller.ps4 .touchpad {
-    background: #2a2c30 !important;
-    background-color: #2a2c30 !important;
-    border: 1px solid #1a1b1d !important;
+/* --- BUTTONS & STICKS --- */
+/* Matte Black Joysticks */
+svg [id*="stick"] path,
+svg [id*="analog"] {
+    fill: #222224 !important;
 }
 
-/* Joysticks - Matte Black */
-.controller.ps4 .stick,
-div.controller.ps4 .stick {
-    background: #222224 !important;
-    background-color: #222224 !important;
-    border: 3px solid #18181a !important;
+/* Dark Slate Touchpad */
+svg path#touchpad,
+svg [id*="touchpad"] {
+    fill: #2a2c30 !important;
+    stroke: #1a1b1d !important;
 }
 
-/* D-Pad - Matte Black */
-.controller.ps4 .dpad .button,
-div.controller.ps4 .dpad .button {
-    background: #1e1f22 !important;
-    background-color: #1e1f22 !important;
+/* Matte Black D-Pad */
+svg [id*="dpad"] path,
+svg [id*="d-pad"] {
+    fill: #1e1f22 !important;
 }
 
-/* Face Buttons - Dark Matte base */
-.controller.ps4 .face-buttons .button,
-div.controller.ps4 .face-buttons .button {
-    background: #2a2c30 !important;
-    background-color: #2a2c30 !important;
+/* Dark Matte Face Buttons Base */
+svg [id*="action-buttons"] path,
+svg [id*="face-buttons"] path {
+    fill: #2a2c30 !important;
 }
 
-/* Vibrant Icon Symbols */
-.controller.ps4 .face-buttons .triangle { color: #4ec3a3 !important; }
-.controller.ps4 .face-buttons .circle { color: #e2637b !important; }
-.controller.ps4 .face-buttons .cross { color: #5a87c7 !important; }
-.controller.ps4 .face-buttons .square { color: #bc8cb1 !important; }
+/* --- VIBRANT SYMBOLS --- */
+svg [id*="triangle"] { fill: #4ec3a3 !important; }
+svg [id*="circle"] { fill: #e2637b !important; }
+svg [id*="cross"], svg [id*="x-button"] { fill: #5a87c7 !important; }
+svg [id*="square"] { fill: #bc8cb1 !important; }
 
-/* Active/Pressed Button State */
-.controller.ps4 .button.pressed,
-.controller.ps4 .dpad .button.pressed {
-    background: #5a87c7 !important;
-    filter: brightness(1.2) !important;
-}
-
-/* PS Button Accent */
-.controller.ps4 .home-button {
-    background: #111 !important;
-    border: 2px solid #ff3b30 !important;
+/* --- INPUT PRESSED STATE --- */
+/* Highlights the active button */
+.pressed, 
+[data-pressed="true"] {
+    fill: #5a87c7 !important;
+    filter: brightness(1.3);
 }
