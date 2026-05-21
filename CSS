@@ -1,61 +1,66 @@
-/* Base controller faceplate - Slate Blue/Gray */
+/* --- OVERRIDE BASE SKIN --- */
+
+/* Main Faceplate - Slate Blue/Gray */
+div.controller.ps4, 
 .controller.ps4 {
     background: #9fa9bc !important;
-    border-radius: 60px;
+    background-color: #9fa9bc !important;
+    border-radius: 60px !important;
 }
 
-/* Handles/Grips - Classic Light Gray */
+/* Handles & Grips - Classic Light Gray */
 .controller.ps4 .handle.left,
-.controller.ps4 .handle.right {
+.controller.ps4 .handle.right,
+div.controller.ps4 .handle {
     background: #b0b5be !important;
+    background-color: #b0b5be !important;
 }
 
 /* Touchpad - Dark Slate/Black Matte */
-.controller.ps4 .touchpad {
+.controller.ps4 .touchpad,
+div.controller.ps4 .touchpad {
     background: #2a2c30 !important;
+    background-color: #2a2c30 !important;
     border: 1px solid #1a1b1d !important;
 }
 
-/* Joysticks - Matte Black with slight indentation shading */
-.controller.ps4 .stick {
+/* Joysticks - Matte Black */
+.controller.ps4 .stick,
+div.controller.ps4 .stick {
     background: #222224 !important;
+    background-color: #222224 !important;
     border: 3px solid #18181a !important;
-    box-shadow: inset 0 0 5px rgba(0,0,0,0.8) !important;
 }
 
 /* D-Pad - Matte Black */
-.controller.ps4 .dpad .button {
+.controller.ps4 .dpad .button,
+div.controller.ps4 .dpad .button {
     background: #1e1f22 !important;
+    background-color: #1e1f22 !important;
 }
 
-/* Face Buttons (Cross, Circle, Square, Triangle) - Dark Matte with Colored Icons */
-.controller.ps4 .face-buttons .button {
+/* Face Buttons - Dark Matte base */
+.controller.ps4 .face-buttons .button,
+div.controller.ps4 .face-buttons .button {
     background: #2a2c30 !important;
+    background-color: #2a2c30 !important;
 }
 
-/* Specific Face Button Symbols matching your controller's vibrant colors */
-.controller.ps4 .face-buttons .triangle {
-    color: #4ec3a3 !important; /* Greenish Teal Triangle */
-}
-.controller.ps4 .face-buttons .circle {
-    color: #e2637b !important; /* Red/Pink Circle */
-}
-.controller.ps4 .face-buttons .cross {
-    color: #5a87c7 !important; /* Blue X */
-}
-.controller.ps4 .face-buttons .square {
-    color: #bc8cb1 !important; /* Pinkish Purple Square */
-}
+/* Vibrant Icon Symbols */
+.controller.ps4 .face-buttons .triangle { color: #4ec3a3 !important; }
+.controller.ps4 .face-buttons .circle { color: #e2637b !important; }
+.controller.ps4 .face-buttons .cross { color: #5a87c7 !important; }
+.controller.ps4 .face-buttons .square { color: #bc8cb1 !important; }
 
 /* Active/Pressed Button State */
 .controller.ps4 .button.pressed,
 .controller.ps4 .dpad .button.pressed {
-    background: #5a87c7 !important; /* Highlights blue when pressed */
-    filter: brightness(1.2);
+    background: #5a87c7 !important;
+    filter: brightness(1.2) !important;
 }
 
-/* Retro PS Button Accent */
+/* PS Button Accent */
 .controller.ps4 .home-button {
     background: #111 !important;
-    border: 2px solid #ff3b30 !important; /* Gives a nod to the colored retro logo logo */
+    border: 2px solid #ff3b30 !important;
 }
