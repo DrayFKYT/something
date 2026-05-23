@@ -49,7 +49,46 @@ local Toggles = {
     AntiAFK = false 
 }
 
--- // Velocity Kill Helper
+local function StopInteraction()
+	local player = game.Players.LocalPlayer
+	local character = player.Character or player.CharacterAdded:Wait()
+	local rootPart = character:WaitForChild("HumanoidRootPart")
+	local room = workspace:FindFirstChild("CurrentRoom")
+
+	if room then
+		local closestGen = nil
+		local shortestDistance = math.huge -- Start with infinity
+
+		-- 1. Locate the Generators folder dynamically
+		for _, part in pairs(room:GetChildren()) do
+			if (part:IsA("Model") or part:IsA("Folder")) and part:FindFirstChild("Generators") then
+				local folder = part.Generators
+				
+				-- 2. Iterate through all generators in that folder
+				for _, gen in pairs(folder:GetChildren()) do
+					-- Ensure it's a generator model and has a PrimaryPart or base to measure distance
+					local interactPart = gen:FindFirstChild("Stats") 
+					if interactPart then
+						local distance = (rootPart.Position - interactPart.Parent.PrimaryPart.Position).Magnitude
+						
+						if distance < shortestDistance then
+							shortestDistance = distance
+							closestGen = gen
+						end
+					end
+				end
+			end
+		end
+
+		-- 3. Fire the remote on the closest one found
+		if closestGen then
+			local stopRemote = closestGen:FindFirstChild("Stats") and closestGen.Stats:FindFirstChild("StopInteracting")
+			if stopRemote then
+				stopRemote:FireServer("Stop")
+			end
+		end
+	end
+end
 local function KillVelocity()
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -287,7 +326,7 @@ local function isAreaSafe(targetPosition)
     
     if monsters then
         for _, m in pairs(monsters:GetChildren()) do
-            if m.Name ~= "RazzleDazzleMonster" and m.Name ~= "RodgerMonster" and m.Name ~= "BlottMonster" then
+            if m.Name ~= "RazzleDazzleMonster" and m.Name ~= "RodgerMonster" and m.Name ~= "BlottMonster" and m.Name ~= "SquirmMonster" then
                 local mPart = m.PrimaryPart or m:FindFirstChildWhichIsA("BasePart")
                 if mPart and (mPart.Position - targetPosition).Magnitude < CAMP_CHECK_DISTANCE then
                     return false
@@ -314,10 +353,20 @@ RunService.Heartbeat:Connect(function()
     local monsters = getRoomFolder("Monsters")
     local gens = getRoomFolder("Generators")
     local room = workspace:FindFirstChild("CurrentRoom")
+	local Dylechec = LocalPlayer.Character:WaitForChild("HumanoidRootPart").Position
     if not monsters or not gens or not room then return end
 
     local dangerDetected = false
     local isSproutChasing = false
+    
+    for _, m in pairs(monsters:GetChildren()) do
+        if m.Name == "DyleMonster" then
+            local mPart = m.PrimaryPart or m:FindFirstChildWhichIsA("BasePart")
+            if mPart and (mPart.Position - Dylechec).Magnitude < 40 then
+                dangerDetected = true
+            end
+        end
+    end
 
     for _, m in pairs(monsters:GetChildren()) do
         if m.Name ~= "RazzleDazzleMonster" and m.Name ~= "RodgerMonster" and m.Name ~= "BlottMonster" then
@@ -346,7 +395,8 @@ RunService.Heartbeat:Connect(function()
 
     if dangerDetected then
         safetyLock = true
-        isInteracting = false 
+        StopInteraction()
+		isInteracting = false 
         lockedGen = nil
         local safetyList = {}
         for _, g in pairs(gens:GetChildren()) do
@@ -376,7 +426,7 @@ RunService.Heartbeat:Connect(function()
                     targetData = safetyList[2] or safetyList[1]
                     teleportStage = 1; sproutTeleportTimer = tick()
                 elseif teleportStage == 1 then
-                    if tick() - sproutTeleportTimer >= 1 then
+                    if tick() - sproutTeleportTimer >= 1.5 then
                         targetData = safetyList[1]; teleportStage = 2
                     else targetData = safetyList[2] or safetyList[1] end
                 else targetData = safetyList[1] end
@@ -389,12 +439,6 @@ RunService.Heartbeat:Connect(function()
                     local modelCenterY = g:GetPivot().Y; local roofY = modelCenterY + (modelHeight / 2) + 85
                     char.HumanoidRootPart.CFrame = CFrame.new(targetPos.X, roofY, targetPos.Z)
                     KillVelocity()
-                    local stopButton = PlayerGui:FindFirstChild("ScreenGui") and PlayerGui.ScreenGui:FindFirstChild("Menu") and PlayerGui.ScreenGui.Menu:FindFirstChild("StopGenerator")
-                    if stopButton and stopButton.Visible then
-                        local absPos = stopButton.AbsolutePosition; local absSize = stopButton.AbsoluteSize
-                        VIM:SendMouseButtonEvent(absPos.X + (absSize.X/2), absPos.Y + (absSize.Y/2), 0, true, game, 1)
-                        VIM:SendMouseButtonEvent(absPos.X + (absSize.X/2), absPos.Y + (absSize.Y/2), 0, false, game, 1)
-                    end
                 end
             end
         end
@@ -572,87 +616,120 @@ end)
 task.spawn(function()
     while true do
         local room = workspace:FindFirstChild("CurrentRoom")
-        if room and #room:GetChildren() > 0 then
-            for _, part in pairs(room:GetChildren()) do
-                if part:IsA("Model") or part:IsA("Folder") then
-                    if part:FindFirstChild("Monsters") then
-                        for _, m in pairs(part.Monsters:GetChildren()) do CreateESP(m, Color3.fromRGB(255, 50, 50), Toggles.MonsterESP) end
-                    end
-                    if part:FindFirstChild("Generators") then
-                        for _, g in pairs(part.Generators:GetChildren()) do
-                            local isDone = g:FindFirstChild("Stats") and g.Stats:FindFirstChild("Completed") and g.Stats.Completed.Value == true
-                            CreateESP(g, Color3.fromRGB(0, 255, 180), Toggles.GenESP and not isDone)
-                        end
-                    end
-                    if part:FindFirstChild("Items") then
-                        for _, i in pairs(part.Items:GetChildren()) do
-                            if i.Name == "ResearchCapsule" then CreateESP(i, Color3.fromRGB(255, 200, 0), Toggles.CapsuleESP or Toggles.AllItemsESP)
-                            elseif i.Name == "HealthKit" or i.Name == "Bandage" then CreateESP(i, Color3.fromRGB(0, 255, 100), Toggles.HealthESP or Toggles.AllItemsESP)
-                            else CreateESP(i, Color3.fromRGB(255, 255, 255), Toggles.AllItemsESP) end
-                        end
-                    end
-                end
-            end
-            for _, desc in pairs(room:GetDescendants()) do
-                if (desc.Name == "SproutTendril" or desc.Name:find("BlotHandZone")) and desc:IsA("BasePart") then
-                    CreateESP(desc, Color3.fromRGB(255, 80, 0), Toggles.MonsterESP)
-                end
-            end
-        else
+        
+        -- 1. CLEANUP: Clear ESP and List if room is missing or changing
+        if not room or #room:GetChildren() == 0 then
             for _, hl in pairs(ESPFolder:GetChildren()) do
                 local target = hl.Adornee
-                if target and not Players:GetPlayerFromCharacter(target) then hl:Destroy() end
+                if not target or not Players:GetPlayerFromCharacter(target) then 
+                    hl:Destroy() 
+                end
             end
+            -- Clear the UI List buttons
+            for _, child in pairs(ScrollingFrame:GetChildren()) do 
+                if child:IsA("TextButton") then child:Destroy() end 
+            end
+            
+            if not room then task.wait(1) continue end
         end
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character then CreateESP(p.Character, Color3.fromRGB(0, 120, 255), Toggles.PlayerESP) end
+
+        -- 2. ESP & LIST DATA COLLECTION
+        -- We'll clear the list buttons once per loop to refresh them
+        for _, child in pairs(ScrollingFrame:GetChildren()) do 
+            if child:IsA("TextButton") then child:Destroy() end 
         end
-        if Toggles.ShowList then
-            if room and #room:GetChildren() > 0 then
-                for _, child in pairs(ScrollingFrame:GetChildren()) do if child:IsA("TextButton") then child:Destroy() end end
-                local entries = {}
-                for _, part in pairs(room:GetChildren()) do
-                    if part:IsA("Model") or part:IsA("Folder") then
-                        if Toggles.TrackMonsters and part:FindFirstChild("Monsters") then
-                            for _, m in pairs(part.Monsters:GetChildren()) do table.insert(entries, {Name = "[M] "..m.Name, Obj = m, Color = Color3.fromRGB(255, 50, 50), Order = 1, CanTP = false}) end
-                        end
-                        if Toggles.TrackGens and part:FindFirstChild("Generators") then
-                            for _, g in pairs(part.Generators:GetChildren()) do 
-                                local isDone = g:FindFirstChild("Stats") and g.Stats:FindFirstChild("Completed") and g.Stats.Completed.Value == true
-                                local genCol = isDone and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(255, 220, 0)
-                                table.insert(entries, {Name = "Generator", Obj = g, Color = genCol, Order = 2, CanTP = true}) 
-                            end
-                        end
-                        if part:FindFirstChild("Items") then
-                            for _, i in pairs(part.Items:GetChildren()) do
-                                local isH = (i.Name == "HealthKit" or i.Name == "Bandage"); local isC = (i.Name == "ResearchCapsule")
-                                if Toggles.TrackAllItems or (isH and Toggles.TrackHealth) or (isC and Toggles.TrackCapsules) then
-                                    local col = isH and Color3.fromRGB(0, 255, 100) or isC and Color3.fromRGB(255, 200, 0) or Color3.fromRGB(255, 255, 255)
-                                    table.insert(entries, {Name = i.Name, Obj = i, Color = col, Order = 3, CanTP = true})
-                                end
-                            end
+        
+        local entries = {}
+
+        for _, part in pairs(room:GetChildren()) do
+            if part:IsA("Model") or part:IsA("Folder") then
+                -- Monsters
+                if part:FindFirstChild("Monsters") then
+                    for _, m in pairs(part.Monsters:GetChildren()) do 
+                        CreateESP(m, Color3.fromRGB(255, 50, 50), Toggles.MonsterESP)
+                        if Toggles.TrackMonsters then
+                            table.insert(entries, {Name = "[M] "..m.Name, Obj = m, Color = Color3.fromRGB(255, 50, 50), Order = 1, CanTP = false})
                         end
                     end
                 end
+
+                -- Generators
+                if part:FindFirstChild("Generators") then
+                    for _, g in pairs(part.Generators:GetChildren()) do
+                        local stats = g:FindFirstChild("Stats")
+                        local isDone = stats and stats:FindFirstChild("Completed") and stats.Completed.Value == true
+                        
+                        CreateESP(g, Color3.fromRGB(0, 255, 180), Toggles.GenESP and not isDone)
+                        if isDone then CreateESP(g, nil, false) end -- Clean up finished gens
+
+                        if Toggles.TrackGens then
+                            local genCol = isDone and Color3.fromRGB(0, 255, 120) or Color3.fromRGB(255, 220, 0)
+                            table.insert(entries, {Name = "Generator", Obj = g, Color = genCol, Order = 2, CanTP = true})
+                        end
+                    end
+                end
+
+                -- Items
+                if part:FindFirstChild("Items") then
+                    for _, i in pairs(part.Items:GetChildren()) do
+                        local isH = (i.Name == "HealthKit" or i.Name == "Bandage")
+                        local isC = (i.Name == "ResearchCapsule")
+                        
+                        -- ESP Logic
+                        if isC then CreateESP(i, Color3.fromRGB(255, 200, 0), Toggles.CapsuleESP or Toggles.AllItemsESP)
+                        elseif isH then CreateESP(i, Color3.fromRGB(0, 255, 100), Toggles.HealthESP or Toggles.AllItemsESP)
+                        else CreateESP(i, Color3.fromRGB(255, 255, 255), Toggles.AllItemsESP) end
+
+                        -- List Logic
+                        if Toggles.TrackAllItems or (isH and Toggles.TrackHealth) or (isC and Toggles.TrackCapsules) then
+                            local col = isH and Color3.fromRGB(0, 255, 100) or isC and Color3.fromRGB(255, 200, 0) or Color3.fromRGB(255, 255, 255)
+                            table.insert(entries, {Name = i.Name, Obj = i, Color = col, Order = 3, CanTP = true})
+                        end
+                    end
+                end
+            end
+        end
+
+        -- 3. HAZARD ZONES (ESP & List)
+        for _, desc in pairs(room:GetDescendants()) do
+            if (desc.Name == "SproutTendril" or desc.Name:find("BlotHandZone")) and desc:IsA("BasePart") then
+                CreateESP(desc, Color3.fromRGB(255, 80, 0), Toggles.MonsterESP)
                 if Toggles.TrackMonsters then
-                    for _, desc in pairs(room:GetDescendants()) do
-                        if (desc.Name == "SproutTendril" or desc.Name:find("BlotHandZone")) and desc:IsA("BasePart") then
-                             table.insert(entries, {Name = "[!] Hazard Zone", Obj = desc, Color = Color3.fromRGB(255, 80, 0), Order = 1, CanTP = false})
-                        end
-                    end
-                end
-                for _, d in pairs(entries) do
-                    local b = Instance.new("TextButton", ScrollingFrame); b.Size = UDim2.new(0.9, 0, 0, 25); b.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-                    b.Text = d.Name; b.TextColor3 = d.Color; b.Font = Enum.Font.GothamSemibold; b.TextSize = 11; b.LayoutOrder = d.Order; b.TextXAlignment = Enum.TextXAlignment.Center
-                    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
-                    if d.CanTP then b.MouseButton1Click:Connect(function() TeleportTo(d.Obj) end) end
+                    table.insert(entries, {Name = "[!] Hazard Zone", Obj = desc, Color = Color3.fromRGB(255, 80, 0), Order = 1, CanTP = false})
                 end
             end
         end
-        task.wait(3)
+
+        -- 4. PLAYER ESP
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character then 
+                CreateESP(p.Character, Color3.fromRGB(0, 120, 255), Toggles.PlayerESP) 
+            end
+        end
+
+        -- 5. POPULATE UI LIST
+        if Toggles.ShowList then
+            for _, d in pairs(entries) do
+                local b = Instance.new("TextButton", ScrollingFrame)
+                b.Size = UDim2.new(0.9, 0, 0, 25)
+                b.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+                b.Text = d.Name
+                b.TextColor3 = d.Color
+                b.Font = Enum.Font.GothamSemibold
+                b.TextSize = 11
+                b.LayoutOrder = d.Order
+                b.TextXAlignment = Enum.TextXAlignment.Center
+                Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+                
+                if d.CanTP then 
+                    b.MouseButton1Click:Connect(function() TeleportTo(d.Obj) end) 
+                end
+            end
+        end
+
+        task.wait(2)
     end
 end)
-
 --- // UI CREATORS // ---
 
 local buttonY = 70 
