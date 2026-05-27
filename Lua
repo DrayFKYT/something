@@ -444,6 +444,61 @@ RunService.Heartbeat:Connect(function()
         end
     else safetyLock = false; teleportStage = 0 end
 end)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+
+local player = Players.LocalPlayer
+local cardVote = workspace:WaitForChild("Info"):WaitForChild("CardVote")
+local cardVoting = workspace:WaitForChild("Info"):WaitForChild("CardVoting")
+local inGamePlayers = workspace:WaitForChild("InGamePlayers")
+
+local voted = false
+ -- Toggle this to turn the script on/off
+
+cardVoting:GetPropertyChangedSignal("Value"):Connect(function()
+    if not cardVoting.Value then
+        voted = false
+    end
+end)
+
+cardVote.ChildAdded:Connect(function()
+    if not toggles.Autofarm then return end
+    if voted then return end
+
+    task.wait(0.5)
+
+    if not toggles.Autofarm then return end
+    if not cardVoting.Value then return end
+    if voted then return end
+
+    local character = player.Character
+    if not character or character.Parent ~= inGamePlayers then return end
+
+    local cards = cardVote:GetChildren()
+
+    local dyleFloorPresent = false
+    for _, card in ipairs(cards) do
+        if card.Name == "DyleFloor" then
+            dyleFloorPresent = true
+            break
+        end
+    end
+
+    if not dyleFloorPresent then return end
+
+    local validCards = {}
+    for _, card in ipairs(cards) do
+        if card.Name ~= "DyleFloor" then
+            table.insert(validCards, card)
+        end
+    end
+
+    if #validCards == 0 then return end
+
+    voted = true
+    local chosen = validCards[math.random(1, #validCards)]
+    ReplicatedStorage.Events.CardVoteEvent:FireServer(chosen)
+end)
 
 task.spawn(function()
     while true do
