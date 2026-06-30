@@ -4,23 +4,45 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
+local Workspace = game:GetService("Workspace")
+local camera = Workspace.CurrentCamera
 
 -- State Management
-local KeenToggled, ScentToggled, AggressionToggled, CowerToggled = false, false, false, false
+local ScentToggled, AggressionToggled, CowerToggled = false, false, false
 local InfiniteStaminaToggled, InfiniteOxygenToggled, InfiniteMoistureToggled = false, false, false
 local AlwaysClimberToggled = false 
 local WalkEnabled, SprintEnabled, FlyEnabled, SwimEnabled = false, false, false, false
 local WalkSpeedValue, SprintSpeedValue, FlySpeedValue, SwimSpeedValue = 16, 16, 16, 16
 
+-- Exploit Fly State (New)
+local ExploitFlyEnabled = false
+local ExploitFlySpeed = 75
+local currentFlyPosition = nil
+local flyInputs = { W = false, A = false, S = false, D = false, Space = false, LeftShift = false }
+
 local GuiVisible = true
-local KeenInitialized = false
-local KeenCapable = true -- Track if executor supports ESP modules
 local HideGuiKey = Enum.KeyCode.P
 
 -- Remotes
 local Remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
 local StateAilmentRemote = Remotes and Remotes:FindFirstChild("StateAilment")
 local HideScentRemote = Remotes and Remotes:FindFirstChild("HideScent")
+
+----------------------------------------------------------------
+-- EXPLOIT FLY INPUT HANDLING
+----------------------------------------------------------------
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if flyInputs[input.KeyCode.Name] ~= nil then
+        flyInputs[input.KeyCode.Name] = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input, gameProcessed)
+    if flyInputs[input.KeyCode.Name] ~= nil then
+        flyInputs[input.KeyCode.Name] = false
+    end
+end)
 
 ----------------------------------------------------------------
 -- STAFF DETECTOR (ALWAYS ON)
@@ -65,7 +87,7 @@ for _, player in ipairs(Players:GetPlayers()) do
 end
 
 ----------------------------------------------------------------
--- HEARTBEAT LOOP
+-- HEARTBEAT / RENDER LOOP
 ----------------------------------------------------------------
 
 RunService.Heartbeat:Connect(function()
@@ -78,6 +100,7 @@ RunService.Heartbeat:Connect(function()
     local char = LocalPlayer.Character
     local data = char and char:FindFirstChild("Data")
     
+    -- Always Climber Enforcement
     local charactersFolder = workspace:FindFirstChild("Characters")
     if charactersFolder then
         local playerFolder = charactersFolder:FindFirstChild(LocalPlayer.Name)
@@ -109,71 +132,40 @@ RunService.Heartbeat:Connect(function()
     if CowerToggled and StateAilmentRemote then StateAilmentRemote:FireServer("Cower") end
 end)
 
-----------------------------------------------------------------
--- KEEN OBSERVER (ESP) LOGIC WITH CAPABILITY CHECK
-----------------------------------------------------------------
-local ActiveGuis = {}
+-- Exploit Fly Logic (CFrame Based)
+RunService.RenderStepped:Connect(function(deltaTime)
+    if not ExploitFlyEnabled then return end
 
-local function GetModule(name)
-    -- Protected call to check if the executor can require game modules
-    local success, result = pcall(function()
-        local found = ReplicatedStorage:FindFirstChild(name, true)
-        if found and found:IsA("ModuleScript") then 
-            return require(found) 
-        end
-    end)
+    local character = LocalPlayer.Character
+    if not character then return end
+
+    local root = character.PrimaryPart or character:FindFirstChild("HumanoidRootPart")
+    if not root then return end
     
-    if success and result then 
-        return result 
-    else
-        KeenCapable = false
-        warn("Executor Unsupported for Module: " .. name)
-        return nil
+    if not currentFlyPosition then
+        currentFlyPosition = root.Position
     end
-end
 
-local GuiUtils = GetModule("GuiUtils")
-local WorldspaceGuiUtils = GetModule("WorldspaceGuiUtils")
-local OverheadHealthbar = GetModule("OverheadHealthbar")
-local UI_Template = ReplicatedStorage:FindFirstChild("OverheadGui", true) 
+    local moveVector = Vector3.zero
 
-local function CreateKeenUI(TargetCharacter)
-    if not KeenCapable or not TargetCharacter or TargetCharacter == LocalPlayer.Character or ActiveGuis[TargetCharacter] then return end 
-    local PlayerObj = Players:GetPlayerFromCharacter(TargetCharacter)
-    if not PlayerObj or not UI_Template then return end
+    if flyInputs.W then moveVector += camera.CFrame.LookVector end
+    if flyInputs.S then moveVector -= camera.CFrame.LookVector end
+    if flyInputs.D then moveVector += camera.CFrame.RightVector end
+    if flyInputs.A then moveVector -= camera.CFrame.RightVector end
+    if flyInputs.Space then moveVector += Vector3.new(0, 1, 0) end
+    if flyInputs.LeftShift then moveVector -= Vector3.new(0, 1, 0) end
 
-    local NewGui = UI_Template:Clone()
-    NewGui.Name = PlayerObj.Name .. "_ForceObserver"
-    NewGui.Enabled = KeenToggled 
-    NewGui.Adornee = TargetCharacter
+    if moveVector.Magnitude > 0 then
+        moveVector = moveVector.Unit
+    end
+
+    local translation = moveVector * ExploitFlySpeed * deltaTime
+    currentFlyPosition += translation
     
-    if GuiUtils then GuiUtils.ParentToWorkspaceGui(NewGui) end
-    if WorldspaceGuiUtils then WorldspaceGuiUtils.AddWorldspaceGui(NewGui) end
-    if OverheadHealthbar then
-        pcall(function()
-            OverheadHealthbar.new(PlayerObj, NewGui:WaitForChild("Health"))
-            ActiveGuis[TargetCharacter] = NewGui 
-        end)
-    end
-end
-
-local function ToggleKeen(state)
-    if not KeenCapable then 
-        print("Feature Disabled: Your executor does not support internal Module requiring.")
-        return 
-    end
-    
-    KeenToggled = state
-    if state and not KeenInitialized then
-        KeenInitialized = true
-        for _, p in pairs(Players:GetPlayers()) do
-            if p.Character then task.spawn(CreateKeenUI, p.Character) end
-            p.CharacterAdded:Connect(function(char) task.spawn(CreateKeenUI, char) end)
-        end
-        Players.PlayerAdded:Connect(function(p) p.CharacterAdded:Connect(function(char) task.spawn(CreateKeenUI, char) end) end)
-    end
-    for char, gui in pairs(ActiveGuis) do if gui then gui.Enabled = state end end
-end
+    root.AssemblyLinearVelocity = Vector3.zero
+    root.AssemblyAngularVelocity = Vector3.zero
+    root.CFrame = CFrame.new(currentFlyPosition) * root.CFrame.Rotation
+end)
 
 ----------------------------------------------------------------
 -- UI CONSTRUCTION
@@ -229,13 +221,13 @@ local function CreateCompactUI()
     Container.BackgroundTransparency = 1
     Container.ScrollBarThickness = 3
     Container.ScrollBarImageColor3 = Color3.fromRGB(85, 255, 127)
-    Container.CanvasSize = UDim2.new(0, 0, 0, 620)
+    Container.CanvasSize = UDim2.new(0, 0, 0, 700)
     
     local List = Instance.new("UIListLayout", Container)
     List.Padding = UDim.new(0, 8)
     List.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
-    local function CreateToggle(name, callback, isDisabled)
+    local function CreateToggle(name, callback)
         local Btn = Instance.new("TextButton", Container)
         Btn.Size = UDim2.new(0.92, 0, 0, 38)
         Btn.BackgroundColor3 = Color3.fromRGB(38, 39, 44)
@@ -243,8 +235,8 @@ local function CreateCompactUI()
         Instance.new("UICorner", Btn)
         
         local Label = Instance.new("TextLabel", Btn)
-        Label.Text = isDisabled and name .. " (Unsupported)" or name
-        Label.TextColor3 = isDisabled and Color3.fromRGB(100, 100, 105) or Color3.fromRGB(200, 200, 205)
+        Label.Text = name
+        Label.TextColor3 = Color3.fromRGB(200, 200, 205)
         Label.Font = Enum.Font.GothamMedium
         Label.TextSize = 13
         Label.Position = UDim2.new(0, 12, 0.5, 0)
@@ -259,8 +251,6 @@ local function CreateCompactUI()
         StatusBG.AnchorPoint = Vector2.new(1, 0.5)
         StatusBG.BackgroundColor3 = Color3.fromRGB(60, 60, 65)
         Instance.new("UICorner", StatusBG).CornerRadius = UDim.new(1, 0)
-
-        if isDisabled then return end -- Don't add click functionality if unsupported
 
         local active = false
         Btn.MouseButton1Click:Connect(function()
@@ -320,8 +310,6 @@ local function CreateCompactUI()
         end)
     end
 
-    -- Toggle buttons with support check
-    CreateToggle("Keen Observer", function(s) ToggleKeen(s) end, not KeenCapable)
     CreateToggle("Always Wall Climber", function(s) AlwaysClimberToggled = s end)
     CreateToggle("Infinite Oxygen", function(s) InfiniteOxygenToggled = s end)
     CreateToggle("Infinite Stamina", function(s) InfiniteStaminaToggled = s end)
@@ -334,6 +322,14 @@ local function CreateCompactUI()
     CreateInputWithToggle("Swim Speed", "16", function(s) SwimEnabled = s end, function(v) SwimSpeedValue = v end)
     CreateInputWithToggle("Sprint Speed", "16", function(s) SprintEnabled = s end, function(v) SprintSpeedValue = v end)
     CreateInputWithToggle("Fly Speed", "16", function(s) FlyEnabled = s end, function(v) FlySpeedValue = v end)
+    
+    -- New Exploit Fly Toggle and Speed Input
+    CreateInputWithToggle("Exploit Fly", "75", function(s) 
+        ExploitFlyEnabled = s 
+        if not s then currentFlyPosition = nil end
+    end, function(v) 
+        ExploitFlySpeed = v 
+    end)
 
     local Footer = Instance.new("TextLabel", Main)
     Footer.Text = "By: Drk_Duck"
