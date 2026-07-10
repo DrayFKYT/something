@@ -11,9 +11,30 @@ local camera = Workspace.CurrentCamera
 local ScentToggled, AggressionToggled, CowerToggled = false, false, false
 local InfiniteStaminaToggled, InfiniteOxygenToggled, InfiniteMoistureToggled = false, false, false
 local AlwaysClimberToggled = false 
+local AlwaysShowOnMap = false
 local WalkEnabled, SprintEnabled, FlyEnabled, SwimEnabled = false, false, false, false
 local WalkSpeedValue, SprintSpeedValue, FlySpeedValue, SwimSpeedValue = 16, 16, 16, 16
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local localPlayer = Players.LocalPlayer
 
+local TeleportToggled = false
+local InputConnection = nil
+local MiniMapToggled = false
+local MiniMapInitialized = false
+
+-- Helper function to safely apply the setting to a player
+local function ApplyMiniMapVisibility(p)
+    if p == game:GetService("Players").LocalPlayer then return end
+    
+    local settingsFolder = p:WaitForChild("Settings", 5)
+    if settingsFolder then
+        local minimapVisibility = settingsFolder:WaitForChild("MinimapVisibility", 5)
+        if minimapVisibility then
+            minimapVisibility.Value = MiniMapToggled and "Everyone" or "Default" 
+        end
+    end
+end
 -- Exploit Fly State (New)
 local ExploitFlyEnabled = false
 local ExploitFlySpeed = 75
@@ -21,6 +42,7 @@ local currentFlyPosition = nil
 local flyInputs = { W = false, A = false, S = false, D = false, Space = false, LeftShift = false }
 
 local GuiVisible = true
+local KeenInitialized = false
 local HideGuiKey = Enum.KeyCode.P
 
 -- Remotes
@@ -167,6 +189,7 @@ RunService.RenderStepped:Connect(function(deltaTime)
     root.CFrame = CFrame.new(currentFlyPosition) * root.CFrame.Rotation
 end)
 
+
 ----------------------------------------------------------------
 -- UI CONSTRUCTION
 ----------------------------------------------------------------
@@ -310,10 +333,82 @@ local function CreateCompactUI()
         end)
     end
 
+	CreateToggle("[J] Instant Menu", function(s)
+		TeleportToggled = s
+		
+		if TeleportToggled then
+			-- Listen for the key press only while the toggle is active
+			if not InputConnection then
+				InputConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+					-- Ignore key presses if the player is typing in chat or a menu
+					if gameProcessed then return end
+					
+					-- Check if the pressed key is 'J'
+					if input.KeyCode == Enum.KeyCode.J then
+						local character = localPlayer.Character
+						local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+						
+						if rootPart then
+							-- Run the movement loop on a separate thread so it doesn't freeze the script
+							task.spawn(function()
+								local duration = 1
+								local startTime = os.clock()
+								local speed = 111111
+								
+								-- Continuously adjust CFrame downwards for 2 seconds
+								while os.clock() - startTime < duration and TeleportToggled do
+									-- Run on every physics frame update
+									local deltaTime = task.wait() 
+									
+									-- Move the CFrame straight down relative to world space
+									rootPart.CFrame = rootPart.CFrame * CFrame.new(0, -(speed * deltaTime), 0)
+								end
+							end)
+						end
+					end
+				end)
+			end
+		else
+			-- Disconnect the key listener cleanly when toggled off
+			if InputConnection then
+				InputConnection:Disconnect()
+				InputConnection = nil
+			end
+		end
+	end)
+	CreateToggle("Minimap Esp", function(s)
+		MiniMapToggled = s
+		
+		-- Initialize the PlayerAdded listener only once when first turned on
+		if s and not MiniMapInitialized then
+			MiniMapInitialized = true
+			
+			-- Run for all current players
+			for _, p in pairs(game:GetService("Players"):GetPlayers()) do
+				task.spawn(ApplyMiniMapVisibility, p)
+			end
+			
+			-- Run for any future players who join
+			game:GetService("Players").PlayerAdded:Connect(function(p)
+				task.spawn(ApplyMiniMapVisibility, p)
+			end)
+		end
+		
+		-- Instantly update all current players whenever the toggle changes state
+		for _, p in pairs(game:GetService("Players"):GetPlayers()) do
+			if p ~= game:GetService("Players").LocalPlayer then
+				local settingsFolder = p:FindFirstChild("Settings")
+				local minimapVisibility = settingsFolder and settingsFolder:FindFirstChild("MinimapVisibility")
+				if minimapVisibility then
+					minimapVisibility.Value = s and "Everyone" or "Default"
+				end
+			end
+		end
+	end)
     CreateToggle("Always Wall Climber", function(s) AlwaysClimberToggled = s end)
     CreateToggle("Infinite Oxygen", function(s) InfiniteOxygenToggled = s end)
-    CreateToggle("Infinite Stamina", function(s) InfiniteStaminaToggled = s end)
     CreateToggle("Infinite Moisture", function(s) InfiniteMoistureToggled = s end)
+	CreateToggle("Infinite Stamina", function(s) InfiniteStaminaToggled = s end)
     CreateToggle("Hide Scent", function(s) ScentToggled = s end)
     CreateToggle("Always Agro", function(s) AggressionToggled = s end)
     CreateToggle("Always Cower", function(s) CowerToggled = s end)
