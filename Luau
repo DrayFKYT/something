@@ -22,7 +22,13 @@ local TeleportToggled = false
 local InputConnection = nil
 local MiniMapToggled = false
 local MiniMapInitialized = false
+-- stop out of bounds damage
+local remote = game:GetService("ReplicatedStorage").Remotes.OutOfBoundsSelfDamage
+local parent = remote.Parent
 
+if parent then
+	remote:Destroy()
+end
 -- Helper function to safely apply the setting to a player
 local function ApplyMiniMapVisibility(p)
     if p == game:GetService("Players").LocalPlayer then return end
