@@ -359,7 +359,7 @@ local function CreateCompactUI()
 							task.spawn(function()
 								local duration = 1
 								local startTime = os.clock()
-								local speed = 1111111111
+								local speed = 1111111
 								
 								-- Continuously adjust CFrame downwards for 2 seconds
 								while os.clock() - startTime < duration and TeleportToggled do
