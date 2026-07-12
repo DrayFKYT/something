@@ -37,7 +37,7 @@ local function ApplyMiniMapVisibility(p)
     if settingsFolder then
         local minimapVisibility = settingsFolder:WaitForChild("MinimapVisibility", 5)
         if minimapVisibility then
-            minimapVisibility.Value = MiniMapToggled and "Friends" or "Default" 
+            minimapVisibility.Value = MiniMapToggled and "Everyone" or "Default" 
         end
     end
 end
@@ -397,8 +397,8 @@ local function CreateCompactUI()
 								local minimapVisibility = settingsFolder:FindFirstChild("MinimapVisibility")
 								
 								-- Force the value to "Everyone" if it gets changed back
-								if minimapVisibility and minimapVisibility.Value ~= "Friends" then
-									minimapVisibility.Value = "Friends"
+								if minimapVisibility and minimapVisibility.Value ~= "Everyone" then
+									minimapVisibility.Value = "Everyone"
 								end
 							end
 						end
