@@ -13,7 +13,7 @@ local InfiniteStaminaToggled, InfiniteOxygenToggled, InfiniteMoistureToggled = f
 local AlwaysClimberToggled = false 
 local AlwaysShowOnMap = false
 local WalkEnabled, SprintEnabled, FlyEnabled, SwimEnabled = false, false, false, false
-local WalkSpeedValue, SprintSpeedValue, FlySpeedValue, SwimSpeedValue = 16, 16, 16, 16
+local WalkSpeedValue, SprintSpeedValue, FlySpeedValue = 16, 16, 16
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
 local localPlayer = Players.LocalPlayer
@@ -148,7 +148,6 @@ RunService.Heartbeat:Connect(function()
     if InfiniteMoistureToggled then data:SetAttribute("Moisture", 99999999999999) end
     
     if WalkEnabled then data:SetAttribute("s", WalkSpeedValue) end
-    if SwimEnabled then data:SetAttribute("s", SwimSpeedValue) end 
     if SprintEnabled then data:SetAttribute("ss", SprintSpeedValue) end
     if FlyEnabled then data:SetAttribute("fs", FlySpeedValue) end
 
@@ -432,8 +431,7 @@ local function CreateCompactUI()
     CreateToggle("Always Agro", function(s) AggressionToggled = s end)
     CreateToggle("Always Cower", function(s) CowerToggled = s end)
 
-    CreateInputWithToggle("Walk Speed", "16", function(s) WalkEnabled = s end, function(v) WalkSpeedValue = v end)
-    CreateInputWithToggle("Swim Speed", "16", function(s) SwimEnabled = s end, function(v) SwimSpeedValue = v end)
+    CreateInputWithToggle("Walk/Swim Speed", "16", function(s) WalkEnabled = s end, function(v) WalkSpeedValue = v end)
     CreateInputWithToggle("Sprint Speed", "16", function(s) SprintEnabled = s end, function(v) SprintSpeedValue = v end)
     CreateInputWithToggle("Fly Speed", "16", function(s) FlyEnabled = s end, function(v) FlySpeedValue = v end)
     
