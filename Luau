@@ -21,6 +21,7 @@ local localPlayer = Players.LocalPlayer
 local TeleportToggled = false
 local InputConnection = nil
 local MiniMapToggled = false
+local MiniMapHeartbeat = nil
 -- stop out of bounds damage
 local remote = game:GetService("ReplicatedStorage").Remotes.OutOfBoundsSelfDamage
 local parent = remote.Parent
@@ -381,37 +382,48 @@ local function CreateCompactUI()
 			end
 		end
 	end)
-CreateToggle("Minimap Esp", function(s)
-    MiniMapToggled = s
-    
-		while MiniMapToggled do
-			task.wait(1)
-			for _, p in pairs(Players:GetPlayers()) do
-				if p ~= localPlayer then
-					local settingsFolder = p:FindFirstChild("Settings")
-					if settingsFolder then
-						local minimapVisibility = settingsFolder:FindFirstChild("MinimapVisibility")
+	CreateToggle("Minimap Esp", function(s)
+		MiniMapToggled = s
+		
+		if MiniMapToggled then
+			-- Start forcing the update on Heartbeat if it isn't running already
+			if not MiniMapHeartbeat then
+				MiniMapHeartbeat = RunService.Heartbeat:Connect(function()
+					-- This loops through every player constantly every single frame
+					for _, p in pairs(Players:GetPlayers()) do
+						if p ~= localPlayer then
+							local settingsFolder = p:FindFirstChild("Settings")
+							if settingsFolder then
+								local minimapVisibility = settingsFolder:FindFirstChild("MinimapVisibility")
 								
-							-- Force the value to "Everyone" if it gets changed back
-						if minimapVisibility and minimapVisibility.Value ~= "Everyone" then
-							minimapVisibility.Value = "Everyone"
+								-- Force the value to "Everyone" if it gets changed back
+								if minimapVisibility and minimapVisibility.Value ~= "Everyone" then
+									minimapVisibility.Value = "Everyone"
+								end
+							end
 						end
 					end
 				end)
 			end
 		else
-        -- Reset players back to Default one final time
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= localPlayer then
-                local settingsFolder = p:FindFirstChild("Settings")
-                local minimapVisibility = settingsFolder and settingsFolder:FindFirstChild("MinimapVisibility")
-                if minimapVisibility then
-                    minimapVisibility.Value = "Default"
-                end
-            end
-        end
-    end
-end)
+			-- Completely kill the loop when the toggle is turned off
+			if MiniMapHeartbeat then
+				MiniMapHeartbeat:Disconnect()
+				MiniMapHeartbeat = nil
+			end
+			
+			-- Reset players back to Default one final time
+			for _, p in pairs(Players:GetPlayers()) do
+				if p ~= localPlayer then
+					local settingsFolder = p:FindFirstChild("Settings")
+					local minimapVisibility = settingsFolder and settingsFolder:FindFirstChild("MinimapVisibility")
+					if minimapVisibility then
+						minimapVisibility.Value = "Default"
+					end
+				end
+			end
+		end
+	end)
     CreateToggle("Always Wall Climber", function(s) AlwaysClimberToggled = s end)
     CreateToggle("Infinite Oxygen", function(s) InfiniteOxygenToggled = s end)
     CreateToggle("Infinite Moisture", function(s) InfiniteMoistureToggled = s end)
