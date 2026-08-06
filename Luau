@@ -690,7 +690,6 @@ local function updateEntry(model, data)
 end
 
 -- ============ TOGGLE ============
-local ESPEnabled = true
 CreateToggle("Box ESP", function(s) ESPEnabled = s end)
 
 -- ============ MAIN HEARTBEAT LOOP ============
