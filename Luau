@@ -381,7 +381,7 @@ local function CreateCompactUI()
 			end
 		end
 	end)
-	-- Box ESP LocalScript for "Creatures But You Have ESP"
+-- Box ESP LocalScript for "Creatures But You Have ESP"
 -- Place in StarterPlayerScripts
 
 local Players = game:GetService("Players")
@@ -703,21 +703,16 @@ RunService.Heartbeat:Connect(function()
 		end
 		return
 	end
-
 	local seen = {}
-
 	for _, model in ipairs(charactersFolder:GetChildren()) do
 		if model:IsA("Model") and model.Name ~= player.Name then
 			seen[model] = true
-
 			if not espData[model] then
 				espData[model] = createEntry()
 			end
-
 			updateEntry(model, espData[model])
 		end
 	end
-
 	-- Clean up despawned creatures
 	for model in pairs(espData) do
 		if not seen[model] then
