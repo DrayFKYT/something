@@ -410,9 +410,9 @@ local HEALTH_BAR_BG_COLOR = Color3.fromRGB(40, 40, 40)
 
 -- Distance based scaling for the floating info panel
 local BASE_PANEL_WIDTH, BASE_PANEL_HEIGHT = 440, 180 -- default (max) size
-local NEAR_RANGE = 60 -- studs; panel stays at full/default size within this range
-local MIN_SCALE = 0.15 -- never shrinks smaller than this, no matter how far
-local FALLOFF_POWER = 1.6 -- higher = shrinks harder/faster past NEAR_RANGE
+local NEAR_RANGE = 200-- studs; panel stays at full/default size within this range
+local MIN_SCALE = 0.30 -- never shrinks smaller than this, no matter how far
+local FALLOFF_POWER = 1 -- higher = shrinks harder/faster past NEAR_RANGE
 
 -- espData[model] = {
 --   highlight, billboard, playerLabel, nameLabel, traitsLabel,
