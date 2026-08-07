@@ -704,7 +704,10 @@ local function updateEntry(model, data)
 	edges.right.Position = UDim2.new(1, -BOX_THICKNESS, 0, 0)
 
 	-- ---- Labels ----
-	data.playerLabel.Text = model.Name
+	local targetPlayer = Players:GetPlayerByName(model.Name)
+	local displayName = targetPlayer and targetPlayer.DisplayName or model.Name
+
+	data.playerLabel.Text = displayName
 	data.nameLabel.Text = species .. (isAggressive and "  ⚠" or "")
 
 	local venText = venStage ~= nil and ("Ven " .. tostring(venStage)) or ""
