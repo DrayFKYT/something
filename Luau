@@ -409,10 +409,10 @@ local HEALTH_BAR_LOW_COLOR = Color3.fromRGB(220, 60, 60)
 local HEALTH_BAR_BG_COLOR = Color3.fromRGB(40, 40, 40)
 
 -- Distance based scaling for the floating info panel
-local BASE_PANEL_WIDTH, BASE_PANEL_HEIGHT = 440, 180 -- default (max) size
-local NEAR_RANGE = 350 -- studs; panel stays at full/default size within this range
-local MIN_SCALE = 0.5 -- never shrinks smaller than this, no matter how far
-local FALLOFF_POWER = 0.5 -- higher = shrinks harder/faster past NEAR_RANGE
+local BASE_PANEL_WIDTH, BASE_PANEL_HEIGHT = 220, 90 -- default (max) size
+local NEAR_RANGE = 200 -- studs; panel stays at full/default size within this range
+local MIN_SCALE = 0.30 -- never shrinks smaller than this, no matter how far
+local FALLOFF_POWER = 1 -- higher = shrinks harder/faster past NEAR_RANGE
 
 -- espData[model] = {
 --   highlight, billboard, playerLabel, nameLabel, traitsLabel,
@@ -487,7 +487,7 @@ local function createEntry(model)
 	playerLabel.Name = "PlayerLabel"
 	playerLabel.BackgroundTransparency = 1
 	playerLabel.Font = Enum.Font.GothamBold
-	playerLabel.TextSize = 30
+	playerLabel.TextSize = 15
 	playerLabel.TextColor3 = Color3.fromRGB(120, 200, 255)
 	playerLabel.TextStrokeTransparency = 0.3
 	playerLabel.Size = UDim2.new(1, 0, 0.2, 0)
@@ -499,7 +499,7 @@ local function createEntry(model)
 	nameLabel.Name = "NameLabel"
 	nameLabel.BackgroundTransparency = 1
 	nameLabel.Font = Enum.Font.GothamBold
-	nameLabel.TextSize = 32
+	nameLabel.TextSize = 16
 	nameLabel.TextColor3 = Color3.new(1, 1, 1)
 	nameLabel.TextStrokeTransparency = 0.3
 	nameLabel.Size = UDim2.new(1, 0, 0.222, 0)
@@ -511,7 +511,7 @@ local function createEntry(model)
 	traitsLabel.Name = "TraitsLabel"
 	traitsLabel.BackgroundTransparency = 1
 	traitsLabel.Font = Enum.Font.Gotham
-	traitsLabel.TextSize = 26
+	traitsLabel.TextSize = 13
 	traitsLabel.TextColor3 = Color3.fromRGB(255, 220, 100)
 	traitsLabel.TextStrokeTransparency = 0.3
 	traitsLabel.Size = UDim2.new(1, 0, 0.178, 0)
@@ -539,7 +539,7 @@ local function createEntry(model)
 	healthText.Name = "HealthText"
 	healthText.BackgroundTransparency = 1
 	healthText.Font = Enum.Font.GothamBold
-	healthText.TextSize = 24
+	healthText.TextSize = 12
 	healthText.TextColor3 = Color3.new(1, 1, 1)
 	healthText.TextStrokeTransparency = 0.3
 	healthText.TextXAlignment = Enum.TextXAlignment.Center
@@ -641,10 +641,10 @@ local function updateEntry(model, data)
 	end
 	data.billboard.Size = UDim2.fromOffset(BASE_PANEL_WIDTH * scale, BASE_PANEL_HEIGHT * scale)
 
-	data.playerLabel.TextSize = math.max(10, math.floor(30 * scale))
-	data.nameLabel.TextSize = math.max(10, math.floor(32 * scale))
-	data.traitsLabel.TextSize = math.max(9, math.floor(26 * scale))
-	data.healthText.TextSize = math.max(9, math.floor(24 * scale))
+	data.playerLabel.TextSize = math.max(10, math.floor(15 * scale))
+	data.nameLabel.TextSize = math.max(10, math.floor(16 * scale))
+	data.traitsLabel.TextSize = math.max(9, math.floor(13 * scale))
+	data.healthText.TextSize = math.max(9, math.floor(12 * scale))
 
 	-- Player display name lookup
 	local rawName = model.Name:gsub("^@", "")
