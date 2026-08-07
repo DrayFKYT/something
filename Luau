@@ -410,8 +410,9 @@ local HEALTH_BAR_BG_COLOR = Color3.fromRGB(40, 40, 40)
 
 -- Distance based scaling for the floating info panel
 local BASE_PANEL_WIDTH, BASE_PANEL_HEIGHT = 440, 180 -- default (max) size
-local NEAR_RANGE = 100 -- studs; panel stays at full/default size within this range
-local MIN_SCALE = 0.5 -- never shrinks smaller than this, no matter how far
+local NEAR_RANGE = 60 -- studs; panel stays at full/default size within this range
+local MIN_SCALE = 0.15 -- never shrinks smaller than this, no matter how far
+local FALLOFF_POWER = 1.6 -- higher = shrinks harder/faster past NEAR_RANGE
 
 -- espData[model] = {
 --   highlight, billboard, playerLabel, nameLabel, traitsLabel,
@@ -597,7 +598,22 @@ local function updateEntry(model, data)
 	local traitsText, isAggressive = getAilmentsInfo(ailmentsFolder)
 
 	local cf, size = model:GetBoundingBox()
-	local distance = (camera.CFrame.Position - cf.Position).Magnitude
+
+	-- Use whichever is closer: the camera, or your own creature — so scaling
+	-- still feels right even if your camera is zoomed/panned away from you.
+	local camDistance = (camera.CFrame.Position - cf.Position).Magnitude
+	local distance = camDistance
+
+	local myCreatureModel = charactersFolder:FindFirstChild(player.Name)
+	if myCreatureModel and myCreatureModel ~= model and myCreatureModel:IsA("Model") then
+		local ok, myPos = pcall(function()
+			return myCreatureModel:GetPivot().Position
+		end)
+		if ok and myPos then
+			local ownDistance = (myPos - cf.Position).Magnitude
+			distance = math.min(camDistance, ownDistance)
+		end
+	end
 
 	if distance > MAX_DISTANCE then
 		data.billboard.Enabled = false
@@ -615,13 +631,13 @@ local function updateEntry(model, data)
 	-- Keep the panel hovering just above the creature's actual size
 	data.billboard.StudsOffsetWorldSpace = Vector3.new(0, size.Y * 0.5 + 1.5, 0)
 
-	-- Full/default size within NEAR_RANGE, then gradually shrinks the
-	-- farther out the creature is — never scales UP past default, only down.
+	-- Full/default size within NEAR_RANGE, then shrinks more aggressively
+	-- the farther out the creature is — never scales UP past default, only down.
 	local scale
 	if distance <= NEAR_RANGE then
 		scale = 1
 	else
-		scale = math.clamp(NEAR_RANGE / distance, MIN_SCALE, 1)
+		scale = math.clamp((NEAR_RANGE / distance) ^ FALLOFF_POWER, MIN_SCALE, 1)
 	end
 	data.billboard.Size = UDim2.fromOffset(BASE_PANEL_WIDTH * scale, BASE_PANEL_HEIGHT * scale)
 
