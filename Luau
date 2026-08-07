@@ -704,8 +704,13 @@ local function updateEntry(model, data)
 	edges.right.Position = UDim2.new(1, -BOX_THICKNESS, 0, 0)
 
 	-- ---- Labels ----
-	local targetPlayer = Players:GetPlayerByName(model.Name)
-	local displayName = targetPlayer and targetPlayer.DisplayName or model.Name
+	local displayName = model.Name
+	local ok, targetPlayer = pcall(function()
+		return game:GetService("Players"):GetPlayerByName(model.Name)
+	end)
+	if ok and targetPlayer then
+		displayName = targetPlayer.DisplayName
+	end
 
 	data.playerLabel.Text = displayName
 	data.nameLabel.Text = species .. (isAggressive and "  ⚠" or "")
