@@ -410,7 +410,7 @@ local HEALTH_BAR_BG_COLOR = Color3.fromRGB(40, 40, 40)
 
 -- Distance based scaling for the floating info panel
 local BASE_PANEL_WIDTH, BASE_PANEL_HEIGHT = 220, 90
-local REFERENCE_DISTANCE = 45 -- studs; panel renders at 1x scale around this distance
+local REFERENCE_DISTANCE = 200 -- studs; panel renders at 1x scale around this distance
 local MIN_SCALE = 0.55
 local MAX_SCALE = 1.6
 
