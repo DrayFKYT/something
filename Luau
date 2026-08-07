@@ -410,9 +410,9 @@ local HEALTH_BAR_BG_COLOR = Color3.fromRGB(40, 40, 40)
 
 -- Distance based scaling for the floating info panel
 local BASE_PANEL_WIDTH, BASE_PANEL_HEIGHT = 220, 90
-local REFERENCE_DISTANCE = 200 -- studs; panel renders at 1x scale around this distance
-local MIN_SCALE = 0.55
-local MAX_SCALE = 1.6
+local REFERENCE_DISTANCE = 45 -- studs; panel renders at 1x scale around this distance
+local MIN_SCALE = 0.45
+local MAX_SCALE = 4.5
 
 -- espData[model] = {
 --   highlight, billboard, playerLabel, nameLabel, traitsLabel,
@@ -620,10 +620,10 @@ local function updateEntry(model, data)
 	local scale = math.clamp(REFERENCE_DISTANCE / math.max(distance, 1), MIN_SCALE, MAX_SCALE)
 	data.billboard.Size = UDim2.fromOffset(BASE_PANEL_WIDTH * scale, BASE_PANEL_HEIGHT * scale)
 
-	data.playerLabel.TextSize = math.max(8, math.floor(15 * scale))
-	data.nameLabel.TextSize = math.max(8, math.floor(16 * scale))
-	data.traitsLabel.TextSize = math.max(7, math.floor(13 * scale))
-	data.healthText.TextSize = math.max(7, math.floor(12 * scale))
+	data.playerLabel.TextSize = math.max(10, math.floor(15 * scale))
+	data.nameLabel.TextSize = math.max(10, math.floor(16 * scale))
+	data.traitsLabel.TextSize = math.max(9, math.floor(13 * scale))
+	data.healthText.TextSize = math.max(9, math.floor(12 * scale))
 
 	-- Player display name lookup
 	local rawName = model.Name:gsub("^@", "")
