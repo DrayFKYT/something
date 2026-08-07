@@ -772,6 +772,307 @@ RunService.Heartbeat:Connect(function()
 		end
 	end
 end)
+-- Outline ESP LocalScript for "Creatures But You Have ESP"
+-- Place in StarterPlayerScripts
+-- Same data sources as BoxESP.lua, but instead of a 2D screen-space box,
+-- this draws a true mesh outline (Highlight) around each creature and a
+-- floating info panel (BillboardGui) that lives in 3D space and scales
+-- with distance, instead of stacked 2D labels.
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+local charactersFolder = workspace:WaitForChild("Characters")
+
+-- ============ CONFIG ============
+local OUTLINE_COLOR = Color3.fromRGB(255, 60, 60)
+local AGGRO_COLOR = Color3.fromRGB(255, 165, 0)
+local OUTLINE_FILL_TRANSPARENCY = 1 -- 1 = no fill, pure outline. Lower it (e.g. 0.85) for a faint glow fill.
+
+local MAX_DISTANCE = 1000 -- studs
+
+local SHOW_HEALTH_BAR = true
+local HEALTH_BAR_FILL_COLOR = Color3.fromRGB(60, 220, 60)
+local HEALTH_BAR_LOW_COLOR = Color3.fromRGB(220, 60, 60)
+local HEALTH_BAR_BG_COLOR = Color3.fromRGB(40, 40, 40)
+
+-- Distance based scaling for the floating info panel
+local BASE_PANEL_WIDTH, BASE_PANEL_HEIGHT = 220, 90
+local REFERENCE_DISTANCE = 45 -- studs; panel renders at 1x scale around this distance
+local MIN_SCALE = 0.55
+local MAX_SCALE = 1.6
+
+-- espData[model] = {
+--   highlight, billboard, playerLabel, nameLabel, traitsLabel,
+--   healthBarBg, healthBarFill, healthText, maxHealth, lastSpecies
+-- }
+local espData = {}
+
+-- Reads an attribute, falling back to a child instance's .Value if the attribute isn't set
+local function readValue(instance, name)
+	local attr = instance:GetAttribute(name)
+	if attr ~= nil then
+		return attr
+	end
+	local child = instance:FindFirstChild(name)
+	if child and child:IsA("ValueBase") then
+		return child.Value
+	end
+	return nil
+end
+
+-- Pulls trait letters ("H/S") and aggression flag out of the Ailments folder's ATTRIBUTES
+local function getAilmentsInfo(ailmentsFolder)
+	local traitLetters = {}
+	local isAggressive = false
+
+	if ailmentsFolder then
+		for attrName, attrValue in pairs(ailmentsFolder:GetAttributes()) do
+			local lowerName = string.lower(attrName)
+
+			if string.find(lowerName, "trait") then
+				local base = attrName:gsub("[Tt][Rr][Aa][Ii][Tt]$", "")
+				if base == "" then
+					base = attrName
+				end
+				table.insert(traitLetters, string.upper(string.sub(base, 1, 1)))
+			elseif string.find(lowerName, "aggro") or string.find(lowerName, "aggress") then
+				isAggressive = (attrValue ~= false)
+			end
+		end
+	end
+
+	return table.concat(traitLetters, "/"), isAggressive
+end
+
+local function createEntry(model)
+	-- ---- True outline through walls ----
+	local highlight = Instance.new("Highlight")
+	highlight.Name = "ESP_Outline"
+	highlight.FillTransparency = OUTLINE_FILL_TRANSPARENCY
+	highlight.OutlineTransparency = 0
+	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	highlight.FillColor = OUTLINE_COLOR
+	highlight.OutlineColor = OUTLINE_COLOR
+	highlight.Adornee = model
+	highlight.Parent = model
+
+	-- ---- Floating info panel ----
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "ESP_Info"
+	billboard.Adornee = model
+	billboard.AlwaysOnTop = true
+	billboard.Size = UDim2.fromOffset(BASE_PANEL_WIDTH, BASE_PANEL_HEIGHT)
+	billboard.StudsOffsetWorldSpace = Vector3.new(0, 3, 0)
+	billboard.Parent = model
+
+	local container = Instance.new("Frame")
+	container.BackgroundTransparency = 1
+	container.Size = UDim2.fromScale(1, 1)
+	container.Parent = billboard
+
+	local playerLabel = Instance.new("TextLabel")
+	playerLabel.Name = "PlayerLabel"
+	playerLabel.BackgroundTransparency = 1
+	playerLabel.Font = Enum.Font.GothamBold
+	playerLabel.TextSize = 15
+	playerLabel.TextColor3 = Color3.fromRGB(120, 200, 255)
+	playerLabel.TextStrokeTransparency = 0.3
+	playerLabel.Size = UDim2.new(1, 0, 0, 18)
+	playerLabel.Position = UDim2.new(0, 0, 0, 0)
+	playerLabel.Text = ""
+	playerLabel.Parent = container
+
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Name = "NameLabel"
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.Font = Enum.Font.GothamBold
+	nameLabel.TextSize = 16
+	nameLabel.TextColor3 = Color3.new(1, 1, 1)
+	nameLabel.TextStrokeTransparency = 0.3
+	nameLabel.Size = UDim2.new(1, 0, 0, 20)
+	nameLabel.Position = UDim2.new(0, 0, 0, 18)
+	nameLabel.Text = ""
+	nameLabel.Parent = container
+
+	local traitsLabel = Instance.new("TextLabel")
+	traitsLabel.Name = "TraitsLabel"
+	traitsLabel.BackgroundTransparency = 1
+	traitsLabel.Font = Enum.Font.Gotham
+	traitsLabel.TextSize = 13
+	traitsLabel.TextColor3 = Color3.fromRGB(255, 220, 100)
+	traitsLabel.TextStrokeTransparency = 0.3
+	traitsLabel.Size = UDim2.new(1, 0, 0, 16)
+	traitsLabel.Position = UDim2.new(0, 0, 0, 40)
+	traitsLabel.Text = ""
+	traitsLabel.Parent = container
+
+	local healthBarBg = Instance.new("Frame")
+	healthBarBg.Name = "HealthBarBg"
+	healthBarBg.BackgroundColor3 = HEALTH_BAR_BG_COLOR
+	healthBarBg.BorderSizePixel = 0
+	healthBarBg.Size = UDim2.new(1, 0, 0, 8)
+	healthBarBg.Position = UDim2.new(0, 0, 0, 62)
+	healthBarBg.Visible = SHOW_HEALTH_BAR
+	healthBarBg.Parent = container
+
+	local healthBarFill = Instance.new("Frame")
+	healthBarFill.Name = "HealthBarFill"
+	healthBarFill.BackgroundColor3 = HEALTH_BAR_FILL_COLOR
+	healthBarFill.BorderSizePixel = 0
+	healthBarFill.Size = UDim2.new(1, 0, 1, 0)
+	healthBarFill.Parent = healthBarBg
+
+	local healthText = Instance.new("TextLabel")
+	healthText.Name = "HealthText"
+	healthText.BackgroundTransparency = 1
+	healthText.Font = Enum.Font.GothamBold
+	healthText.TextSize = 12
+	healthText.TextColor3 = Color3.new(1, 1, 1)
+	healthText.TextStrokeTransparency = 0.3
+	healthText.TextXAlignment = Enum.TextXAlignment.Center
+	healthText.Size = UDim2.new(1, 0, 0, 14)
+	healthText.Position = UDim2.new(0, 0, 0, 73)
+	healthText.Text = ""
+	healthText.Visible = SHOW_HEALTH_BAR
+	healthText.Parent = container
+
+	return {
+		highlight = highlight,
+		billboard = billboard,
+		playerLabel = playerLabel,
+		nameLabel = nameLabel,
+		traitsLabel = traitsLabel,
+		healthBarBg = healthBarBg,
+		healthBarFill = healthBarFill,
+		healthText = healthText,
+		maxHealth = nil,
+		lastSpecies = nil,
+	}
+end
+
+local function destroyEntry(model)
+	local data = espData[model]
+	if data then
+		if data.highlight then data.highlight:Destroy() end
+		if data.billboard then data.billboard:Destroy() end
+		espData[model] = nil
+	end
+end
+
+local function updateEntry(model, data)
+	if not model or not model.Parent then
+		destroyEntry(model)
+		return
+	end
+
+	local dataFolder = model:FindFirstChild("Data")
+	local ailmentsFolder = model:FindFirstChild("Ailments")
+
+	local health = dataFolder and readValue(dataFolder, "h") or 0
+	local species = (dataFolder and readValue(dataFolder, "Species")) or model.Name
+	local venStage = dataFolder and readValue(dataFolder, "vt")
+
+	-- Reset tracked max health if the creature (species) changed
+	if data.lastSpecies ~= species then
+		data.lastSpecies = species
+		data.maxHealth = health
+	end
+	if health > (data.maxHealth or 0) then
+		data.maxHealth = health
+	end
+	local maxHealth = math.max(data.maxHealth or 1, 1)
+
+	local traitsText, isAggressive = getAilmentsInfo(ailmentsFolder)
+
+	local cf, size = model:GetBoundingBox()
+	local distance = (camera.CFrame.Position - cf.Position).Magnitude
+
+	if distance > MAX_DISTANCE then
+		data.billboard.Enabled = false
+		data.highlight.Enabled = false
+		return
+	end
+	data.billboard.Enabled = true
+	data.highlight.Enabled = true
+
+	-- Outline color reacts to aggression
+	local color = isAggressive and AGGRO_COLOR or OUTLINE_COLOR
+	data.highlight.OutlineColor = color
+	data.highlight.FillColor = color
+
+	-- Keep the panel hovering just above the creature's actual size
+	data.billboard.StudsOffsetWorldSpace = Vector3.new(0, size.Y * 0.5 + 1.5, 0)
+
+	-- Distance based scaling of the whole panel
+	local scale = math.clamp(REFERENCE_DISTANCE / math.max(distance, 1), MIN_SCALE, MAX_SCALE)
+	data.billboard.Size = UDim2.fromOffset(BASE_PANEL_WIDTH * scale, BASE_PANEL_HEIGHT * scale)
+
+	-- Player display name lookup
+	local rawName = model.Name:gsub("^@", "")
+	local displayName = rawName
+	local ok, players = pcall(function()
+		return game:GetService("Players"):GetPlayers()
+	end)
+	if ok and players then
+		for _, plr in ipairs(players) do
+			if plr.Name == rawName then
+				displayName = plr.DisplayName
+				break
+			end
+		end
+	end
+
+	data.playerLabel.Text = displayName
+	data.nameLabel.Text = species .. (isAggressive and "  ⚠" or "")
+
+	local venText = venStage ~= nil and ("Ven " .. tostring(venStage)) or ""
+	local aggroText = isAggressive and "Aggressive" or ""
+	local parts = {}
+	if traitsText ~= "" then table.insert(parts, traitsText) end
+	if aggroText ~= "" then table.insert(parts, aggroText) end
+	if venText ~= "" then table.insert(parts, venText) end
+	data.traitsLabel.Text = table.concat(parts, "  |  ")
+	data.traitsLabel.TextColor3 = isAggressive and AGGRO_COLOR or Color3.fromRGB(255, 220, 100)
+
+	if SHOW_HEALTH_BAR then
+		local pct = math.clamp(health / maxHealth, 0, 1)
+		data.healthBarFill.Size = UDim2.new(pct, 0, 1, 0)
+		data.healthBarFill.BackgroundColor3 = pct <= 0.25 and HEALTH_BAR_LOW_COLOR or HEALTH_BAR_FILL_COLOR
+		data.healthText.Text = string.format("%d/%d", math.floor(health), math.floor(maxHealth))
+	end
+end
+
+-- ============ TOGGLE ============
+CreateToggle("Outline ESP", function(s) ESPEnabled = s end)
+
+-- ============ MAIN HEARTBEAT LOOP ============
+RunService.Heartbeat:Connect(function()
+	if not ESPEnabled then
+		for _, data in pairs(espData) do
+			data.billboard.Enabled = false
+			data.highlight.Enabled = false
+		end
+		return
+	end
+	local seen = {}
+	for _, model in ipairs(charactersFolder:GetChildren()) do
+		if model:IsA("Model") and model.Name:gsub("^@", "") ~= player.Name then
+			seen[model] = true
+			if not espData[model] then
+				espData[model] = createEntry(model)
+			end
+			updateEntry(model, espData[model])
+		end
+	end
+	for model in pairs(espData) do
+		if not seen[model] then
+			destroyEntry(model)
+		end
+	end
+end)
 	CreateToggle("Minimap Esp", function(s)
 		MiniMapToggled = s
 		
