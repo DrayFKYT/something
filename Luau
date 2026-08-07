@@ -704,12 +704,18 @@ local function updateEntry(model, data)
 	edges.right.Position = UDim2.new(1, -BOX_THICKNESS, 0, 0)
 
 	-- ---- Labels ----
-	local displayName = model.Name
-	local ok, targetPlayer = pcall(function()
-		return game:GetService("Players"):GetPlayerByName(model.Name)
+	local rawName = model.Name:gsub("^@", "")
+	local displayName = rawName
+	local ok, players = pcall(function()
+		return game:GetService("Players"):GetPlayers()
 	end)
-	if ok and targetPlayer then
-		displayName = targetPlayer.DisplayName
+	if ok and players then
+		for _, plr in ipairs(players) do
+			if plr.Name == rawName then
+				displayName = plr.DisplayName
+				break
+			end
+		end
 	end
 
 	data.playerLabel.Text = displayName
@@ -751,7 +757,7 @@ RunService.Heartbeat:Connect(function()
 	end
 	local seen = {}
 	for _, model in ipairs(charactersFolder:GetChildren()) do
-		if model:IsA("Model") and model.Name ~= player.Name then
+		if model:IsA("Model") and model.Name:gsub("^@", "") ~= player.Name then
 			seen[model] = true
 			if not espData[model] then
 				espData[model] = createEntry()
