@@ -490,7 +490,7 @@ local function createEntry(model)
 	playerLabel.TextSize = 15
 	playerLabel.TextColor3 = Color3.fromRGB(120, 200, 255)
 	playerLabel.TextStrokeTransparency = 0.3
-	playerLabel.Size = UDim2.new(1, 0, 0, 18)
+	playerLabel.Size = UDim2.new(1, 0, 0.2, 0)
 	playerLabel.Position = UDim2.new(0, 0, 0, 0)
 	playerLabel.Text = ""
 	playerLabel.Parent = container
@@ -502,8 +502,8 @@ local function createEntry(model)
 	nameLabel.TextSize = 16
 	nameLabel.TextColor3 = Color3.new(1, 1, 1)
 	nameLabel.TextStrokeTransparency = 0.3
-	nameLabel.Size = UDim2.new(1, 0, 0, 20)
-	nameLabel.Position = UDim2.new(0, 0, 0, 18)
+	nameLabel.Size = UDim2.new(1, 0, 0.222, 0)
+	nameLabel.Position = UDim2.new(0, 0, 0.2, 0)
 	nameLabel.Text = ""
 	nameLabel.Parent = container
 
@@ -514,8 +514,8 @@ local function createEntry(model)
 	traitsLabel.TextSize = 13
 	traitsLabel.TextColor3 = Color3.fromRGB(255, 220, 100)
 	traitsLabel.TextStrokeTransparency = 0.3
-	traitsLabel.Size = UDim2.new(1, 0, 0, 16)
-	traitsLabel.Position = UDim2.new(0, 0, 0, 40)
+	traitsLabel.Size = UDim2.new(1, 0, 0.178, 0)
+	traitsLabel.Position = UDim2.new(0, 0, 0.444, 0)
 	traitsLabel.Text = ""
 	traitsLabel.Parent = container
 
@@ -523,8 +523,8 @@ local function createEntry(model)
 	healthBarBg.Name = "HealthBarBg"
 	healthBarBg.BackgroundColor3 = HEALTH_BAR_BG_COLOR
 	healthBarBg.BorderSizePixel = 0
-	healthBarBg.Size = UDim2.new(1, 0, 0, 8)
-	healthBarBg.Position = UDim2.new(0, 0, 0, 62)
+	healthBarBg.Size = UDim2.new(1, 0, 0.089, 0)
+	healthBarBg.Position = UDim2.new(0, 0, 0.689, 0)
 	healthBarBg.Visible = SHOW_HEALTH_BAR
 	healthBarBg.Parent = container
 
@@ -543,8 +543,8 @@ local function createEntry(model)
 	healthText.TextColor3 = Color3.new(1, 1, 1)
 	healthText.TextStrokeTransparency = 0.3
 	healthText.TextXAlignment = Enum.TextXAlignment.Center
-	healthText.Size = UDim2.new(1, 0, 0, 14)
-	healthText.Position = UDim2.new(0, 0, 0, 73)
+	healthText.Size = UDim2.new(1, 0, 0.156, 0)
+	healthText.Position = UDim2.new(0, 0, 0.811, 0)
 	healthText.Text = ""
 	healthText.Visible = SHOW_HEALTH_BAR
 	healthText.Parent = container
@@ -620,6 +620,11 @@ local function updateEntry(model, data)
 	local scale = math.clamp(REFERENCE_DISTANCE / math.max(distance, 1), MIN_SCALE, MAX_SCALE)
 	data.billboard.Size = UDim2.fromOffset(BASE_PANEL_WIDTH * scale, BASE_PANEL_HEIGHT * scale)
 
+	data.playerLabel.TextSize = math.max(8, math.floor(15 * scale))
+	data.nameLabel.TextSize = math.max(8, math.floor(16 * scale))
+	data.traitsLabel.TextSize = math.max(7, math.floor(13 * scale))
+	data.healthText.TextSize = math.max(7, math.floor(12 * scale))
+
 	-- Player display name lookup
 	local rawName = model.Name:gsub("^@", "")
 	local displayName = rawName
@@ -683,7 +688,7 @@ RunService.Heartbeat:Connect(function()
 		end
 	end
 end)
-	CreateToggle("Minimap Esp", function(s)
+CreateToggle("Minimap Esp", function(s)
 		MiniMapToggled = s
 		
 		if MiniMapToggled then
