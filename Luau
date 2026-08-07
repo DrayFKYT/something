@@ -409,10 +409,10 @@ local HEALTH_BAR_LOW_COLOR = Color3.fromRGB(220, 60, 60)
 local HEALTH_BAR_BG_COLOR = Color3.fromRGB(40, 40, 40)
 
 -- Distance based scaling for the floating info panel
-local BASE_PANEL_WIDTH, BASE_PANEL_HEIGHT = 220, 90
+local BASE_PANEL_WIDTH, BASE_PANEL_HEIGHT = 260, 110
 local REFERENCE_DISTANCE = 45 -- studs; panel renders at 1x scale around this distance
-local MIN_SCALE = 0.45
-local MAX_SCALE = 4.5
+local MIN_SCALE = 0.5
+local MAX_SCALE = 7
 
 -- espData[model] = {
 --   highlight, billboard, playerLabel, nameLabel, traitsLabel,
@@ -616,14 +616,18 @@ local function updateEntry(model, data)
 	-- Keep the panel hovering just above the creature's actual size
 	data.billboard.StudsOffsetWorldSpace = Vector3.new(0, size.Y * 0.5 + 1.5, 0)
 
-	-- Distance based scaling of the whole panel
-	local scale = math.clamp(REFERENCE_DISTANCE / math.max(distance, 1), MIN_SCALE, MAX_SCALE)
+	-- Distance based scaling of the whole panel.
+	-- Measured to the creature's SURFACE (center distance minus its own
+	-- rough radius), not its center — otherwise a giant creature's center
+	-- can be far away even while you're standing right next to it.
+	local surfaceDistance = math.max(distance - (size.Magnitude * 0.5), 1)
+	local scale = math.clamp(REFERENCE_DISTANCE / surfaceDistance, MIN_SCALE, MAX_SCALE)
 	data.billboard.Size = UDim2.fromOffset(BASE_PANEL_WIDTH * scale, BASE_PANEL_HEIGHT * scale)
 
-	data.playerLabel.TextSize = math.max(10, math.floor(15 * scale))
-	data.nameLabel.TextSize = math.max(10, math.floor(16 * scale))
-	data.traitsLabel.TextSize = math.max(9, math.floor(13 * scale))
-	data.healthText.TextSize = math.max(9, math.floor(12 * scale))
+	data.playerLabel.TextSize = math.max(10, math.floor(18 * scale))
+	data.nameLabel.TextSize = math.max(10, math.floor(20 * scale))
+	data.traitsLabel.TextSize = math.max(9, math.floor(16 * scale))
+	data.healthText.TextSize = math.max(9, math.floor(14 * scale))
 
 	-- Player display name lookup
 	local rawName = model.Name:gsub("^@", "")
