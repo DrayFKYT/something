@@ -401,7 +401,7 @@ local OUTLINE_COLOR = Color3.fromRGB(255, 60, 60)
 local AGGRO_COLOR = Color3.fromRGB(255, 165, 0)
 local OUTLINE_FILL_TRANSPARENCY = 1 -- 1 = no fill, pure outline. Lower it (e.g. 0.85) for a faint glow fill.
 
-local MAX_DISTANCE = 2000 -- studs
+local MAX_DISTANCE = 650 -- studs
 
 local SHOW_HEALTH_BAR = true
 local HEALTH_BAR_FILL_COLOR = Color3.fromRGB(60, 220, 60)
