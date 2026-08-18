@@ -144,8 +144,8 @@ RunService.Heartbeat:Connect(function()
         data:SetAttribute("st", 99999999999999)
         data:SetAttribute("sr", 99999999999999)
     end
-    if InfiniteOxygenToggled then data:SetAttribute("Oxygen", 99999999999999) end
-    if InfiniteMoistureToggled then data:SetAttribute("Moisture", 99999999999999) end
+    if InfiniteOxygenToggled then data:SetAttribute("Oxygen", nil) end
+    if InfiniteMoistureToggled then data:SetAttribute("Moisture", nil) end
     
     if WalkEnabled then data:SetAttribute("s", WalkSpeedValue) end
     if SprintEnabled then data:SetAttribute("ss", SprintSpeedValue) end
