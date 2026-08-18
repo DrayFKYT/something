@@ -118,6 +118,12 @@ end
 -- HEARTBEAT / RENDER LOOP
 ----------------------------------------------------------------
 
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local lastAlwaysClimberState = nil
+
 RunService.Heartbeat:Connect(function()
     -- Admin Check
     for _, player in ipairs(Players:GetPlayers()) do
@@ -134,7 +140,16 @@ RunService.Heartbeat:Connect(function()
         local playerFolder = charactersFolder:FindFirstChild(LocalPlayer.Name)
         local climberData = playerFolder and playerFolder:FindFirstChild("Data")
         if climberData then
-            climberData:SetAttribute("Climber", AlwaysClimberToggled)
+            if AlwaysClimberToggled then
+                -- Runs every frame when toggled on
+                climberData:SetAttribute("Climber", true)
+            else
+                -- Runs only 1 time when toggled off (or when state changes to false)
+                if lastAlwaysClimberState ~= false then
+                    climberData:SetAttribute("Climber", false)
+                end
+            end
+            lastAlwaysClimberState = AlwaysClimberToggled
         end
     end
 
