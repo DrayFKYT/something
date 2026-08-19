@@ -424,7 +424,7 @@ local OUTLINE_COLOR = Color3.fromRGB(255, 60, 60)
 local AGGRO_COLOR = Color3.fromRGB(255, 165, 0)
 local OUTLINE_FILL_TRANSPARENCY = 1 -- 1 = no fill, pure outline. Lower it (e.g. 0.85) for a faint glow fill.
 
-local MAX_DISTANCE = 650 -- studs
+local MAX_DISTANCE = 1500 -- studs
 
 local SHOW_HEALTH_BAR = true
 local HEALTH_BAR_FILL_COLOR = Color3.fromRGB(60, 220, 60)
@@ -608,15 +608,26 @@ local function updateEntry(model, data)
 	local species = (dataFolder and readValue(dataFolder, "Species")) or model.Name
 	local venStage = dataFolder and readValue(dataFolder, "vt")
 
-	-- Reset tracked max health if the creature (species) changed
-	if data.lastSpecies ~= species then
+	-- Max health now comes straight from the "mh" attribute (or ValueBase child)
+	-- living next to "h" in the Data folder. Fall back to the old "track the
+	-- highest health seen" behavior only if mh isn't present on a creature yet,
+	-- so nothing breaks for anything that hasn't been updated with mh.
+	local mh = dataFolder and readValue(dataFolder, "mh")
+	local maxHealth
+	if mh ~= nil and mh > 0 then
+		maxHealth = mh
+		data.maxHealth = mh
 		data.lastSpecies = species
-		data.maxHealth = health
+	else
+		if data.lastSpecies ~= species then
+			data.lastSpecies = species
+			data.maxHealth = health
+		end
+		if health > (data.maxHealth or 0) then
+			data.maxHealth = health
+		end
+		maxHealth = math.max(data.maxHealth or 1, 1)
 	end
-	if health > (data.maxHealth or 0) then
-		data.maxHealth = health
-	end
-	local maxHealth = math.max(data.maxHealth or 1, 1)
 
 	local traitsText, isAggressive = getAilmentsInfo(ailmentsFolder)
 
