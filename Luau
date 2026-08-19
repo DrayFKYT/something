@@ -161,12 +161,12 @@ RunService.Heartbeat:Connect(function()
     end
 
     -- Check if the toggle is true AND the Oxygen attribute exists
-    if InfiniteOxygenToggled and data:GetAttribute("Oxygen") ~= nil then 
+    if InfiniteOxygenToggled then 
         data:SetAttribute("Oxygen", nil) 
     end
     
     -- Check if the toggle is true AND the Moisture attribute exists
-    if InfiniteMoistureToggled and data:GetAttribute("Moisture") ~= nil then 
+    if InfiniteMoistureToggled then 
         data:SetAttribute("Moisture", nil) 
     end
 
